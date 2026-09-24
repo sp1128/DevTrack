@@ -1,0 +1,56 @@
+{
+  "name": "devtrack",
+  "version": "1.0.0",
+  "description": "本地自动统计 Claude Code 开发活动：会话、文件修改、命令、Git 提交、任务，并生成开发周报",
+  "type": "module",
+  "bin": {
+    "devtrack": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node scripts/clean.mjs && tsc -p tsconfig.build.json && node scripts/chmod.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "pretest": "npm run build",
+    "prepack": "npm run build"
+  },
+  "keywords": [
+    "claude-code",
+    "hooks",
+    "developer-productivity",
+    "time-tracking",
+    "weekly-report",
+    "cli"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sp1128/DevTrack.git"
+  },
+  "homepage": "https://github.com/sp1128/DevTrack#readme",
+  "bugs": {
+    "url": "https://github.com/sp1128/DevTrack/issues"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
+    "better-sqlite3": "^13.0.3",
+    "commander": "^15.0.0",
+    "date-fns": "^4.4.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}
