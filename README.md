@@ -66,7 +66,7 @@ git clone https://github.com/sp1128/DevTrack.git
 cd DevTrack
 npm install
 npm run build
-npm install -g .          # 或：npm pack && npm install -g ./devtrack-1.0.0.tgz
+npm install -g .          # 或：npm pack && npm install -g ./devtrack-*.tgz
 ```
 
 安装后确认：
@@ -476,10 +476,10 @@ npm version patch -m "chore: 发布 v%s"   # 或 minor / major；会修改版本
 git push origin main --follow-tags       # 推送标签后自动发布
 ```
 
-首次发布 1.0.0 时版本号已经是 1.0.0，直接打标签即可：
+首次发布：`devtrack` 这个名字以前有人发布过 1.0.0 后又撤销了，而 npm 上发布过的版本号永远不能再用，所以首个版本是 1.0.1。版本号已经改好，直接打标签即可：
 
 ```bash
-git tag -a v1.0.0 -m "chore: 发布 v1.0.0" && git push origin v1.0.0
+git tag -a v1.0.1 -m "chore: 发布 v1.0.1" && git push origin v1.0.1
 ```
 
 发布结果可以在仓库的 **Actions → Release** 中查看。
