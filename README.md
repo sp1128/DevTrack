@@ -459,6 +459,31 @@ src/
 test/                   Vitest 测试
 ```
 
+### 发布到 npm（维护者）
+
+发布由 GitHub Actions 自动完成（`.github/workflows/release.yml`）：推送 `v*` 标签后，工作流会先检查 NPM_TOKEN 是否已配置、标签是否与 `package.json` 的版本一致、标签指向的提交是否在 `main` 上，然后运行类型检查和全部测试，最后带 [provenance（来源证明）](https://docs.npmjs.com/generating-provenance-statements) 发布。预发布版本（如 `1.1.0-beta.1`）发布到 `next` 标签，不影响 `latest`。
+
+一次性配置：
+
+1. 在 npmjs.com 的 **Access Tokens** 页面生成 **Granular Access Token**：权限选 **Read and write**，勾选 **Bypass two-factor authentication**（CI 中无法输入验证码）。第一次发布前包还不存在，范围需要选 **All packages**；发布后可以换成只针对 `devtrack` 的令牌。
+2. 在 GitHub 仓库 **Settings → Secrets and variables → Actions** 中新建仓库密钥 `NPM_TOKEN`，值为上一步的令牌。npm 的发布令牌有有效期，过期后更新这个密钥即可。
+
+发布新版本：
+
+```bash
+git checkout main && git pull
+npm version patch -m "chore: 发布 v%s"   # 或 minor / major；会修改版本号、提交并打标签
+git push origin main --follow-tags       # 推送标签后自动发布
+```
+
+首次发布 1.0.0 时版本号已经是 1.0.0，直接打标签即可：
+
+```bash
+git tag -a v1.0.0 -m "chore: 发布 v1.0.0" && git push origin v1.0.0
+```
+
+发布结果可以在仓库的 **Actions → Release** 中查看。
+
 ## 卸载
 
 ```bash
