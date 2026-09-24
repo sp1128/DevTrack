@@ -27,6 +27,7 @@ devtrack today    # 今天干了什么
 - [安装](#安装)
 - [初始化](#初始化)
 - [Claude Code Hook 如何安装](#claude-code-hook-如何安装)
+- [支持哪些 Claude Code 使用方式](#支持哪些-claude-code-使用方式)
 - [查看今天](#查看今天)
 - [查看本周 / 本月](#查看本周--本月)
 - [查看项目](#查看项目)
@@ -144,7 +145,40 @@ devtrack init
 - `--devtrack-managed` 是 DevTrack 识别自己安装的 Hook 的标记，重装和卸载只会处理带这个标记的 Hook。
 - 可以在 Claude Code 中输入 `/hooks` 查看已加载的 Hook。
 - **Hook 永远不会影响 Claude Code 的正常使用**：处理过程中的任何错误都只写入 `~/.devtrack/logs/devtrack.log`，进程始终以退出码 0 结束、不向 stdout 输出任何内容；除 `SessionEnd` 外都在后台异步执行，不阻塞 Claude。
-- 注意：[Claude Code 云端会话](https://code.claude.com/docs/en/claude-code-on-the-web) 不读取本机的 `~/.claude/settings.json`，因此只统计本机上运行的 Claude Code。
+- 注意：[Claude Code 云端会话](https://code.claude.com/docs/en/claude-code-on-the-web) 不读取本机的 `~/.claude/settings.json`，因此只统计本机上运行的 Claude Code，详见下一节。
+
+## 支持哪些 Claude Code 使用方式
+
+DevTrack 依赖 `~/.claude/settings.json` 中的 Hook。按照[官方文档](https://code.claude.com/docs/en/desktop)，桌面客户端和命令行读取同一套配置文件，settings 中定义的 Hook 对两者都生效；VS Code 插件也共用 `~/.claude/settings.json`。
+
+| 使用方式 | 能否记录 | 说明 |
+| --- | --- | --- |
+| 终端中的 `claude` 命令 | ✅ | |
+| 桌面客户端 Code 标签页的**本地会话**（Local） | ✅ | 与命令行完全一样 |
+| VS Code / JetBrains 中的 Claude Code 插件 | ✅ | |
+| 桌面客户端的 **WSL 会话**（Windows） | ✅ | DevTrack 需要安装在 WSL 发行版内部 |
+| 桌面客户端的 **SSH 远程会话** | ⚠️ | 预计需要在远程主机上安装 DevTrack；官方文档只明确了 SSH 会话读取远程主机的 skills，未验证 |
+| **云端会话**（claude.ai/code、客户端中的云端会话） | ❌ | 不读取本机的 `~/.claude/settings.json` |
+| 桌面客户端的 **Cowork** 标签页 | ❌ | 使用 claude.ai 账号中的配置，不读取 `~/.claude` |
+
+使用桌面客户端的本地会话开发时：
+
+1. 在电脑上执行一次 `npm install -g devtrack` 和 `devtrack init`
+2. **完全退出并重新打开**桌面客户端，之后的本地会话会自动记录
+3. 在本地会话中输入 `/hooks`，应该能看到 8 个 DevTrack 事件
+4. 与 Claude 对话几句后运行 `devtrack doctor`，确认"Hook 事件"显示了最近一次收到事件的时间
+
+说明：
+
+- **不需要安装命令行版 `claude`**：Hook 通过 Node.js 的绝对路径直接调用，不依赖 PATH。只用客户端时 `devtrack doctor` 会提示"未在 PATH 中找到 claude 命令"，这只是警告，可以忽略。
+- 想先试用、不修改全局配置，可以把 Hook 写到单独的文件，只在指定的命令行会话中启用（这种方式只适用于命令行）：
+
+  ```bash
+  devtrack init --settings ./devtrack-hooks.json
+  claude --settings ./devtrack-hooks.json
+  ```
+
+- 使用 `claude -p` 一次性模式时，Claude Code 退出时会终止仍在后台运行的 Hook，最后一轮的 `Stop` 事件可能收不到；`SessionEnd` 是同步执行的，Git 提交与文件变化仍会在会话结束时同步，不影响统计结果。
 
 ## 查看今天
 
@@ -386,6 +420,8 @@ DevTrack Doctor
 | 现象 | 处理 |
 | --- | --- |
 | `today` 没有数据 | 安装 Hook 后需要**重新启动** Claude Code；运行 `devtrack doctor` 查看"Hook 事件" |
+| 桌面客户端里没有记录 | 确认使用的是**本地会话**而不是云端会话或 Cowork；安装后需要完全退出并重新打开客户端 |
+| 只用桌面客户端，doctor 提示找不到 claude 命令 | 可以忽略，Hook 不依赖命令行版 `claude` |
 | Hook 引用的文件不存在 | Node.js 或 DevTrack 位置变了（例如 nvm 切换版本），重新运行 `devtrack init` |
 | Claude Code 版本过旧 | `claude update`，或 `devtrack init --hook-command path` |
 | settings.json 设置了 `disableAllHooks` | 删除该设置 |
