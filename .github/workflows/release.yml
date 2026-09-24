@@ -1,0 +1,70 @@
+name: Release
+
+# 推送 v* 标签（例如 v1.0.0）时测试并发布到 npm。
+# 需要先在仓库 Settings → Secrets and variables → Actions 中添加 NPM_TOKEN。
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  # npm provenance（来源证明）需要 OIDC 令牌
+  id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # 需要完整历史，用于确认标签指向的提交在 main 上
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: 发布前检查
+        env:
+          TAG: ${{ github.ref_name }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::error::未配置 NPM_TOKEN：请在仓库 Settings → Secrets and variables → Actions 中添加"
+            exit 1
+          fi
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "::error::标签 $TAG 与 package.json 中的版本 v$VERSION 不一致"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::标签 $TAG 指向的提交不在 main 分支上"
+            exit 1
+          fi
+
+      - run: npm ci
+
+      - name: 类型检查
+        run: npm run typecheck
+
+      - name: 测试
+        run: npm test
+
+      - name: 发布到 npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          # 预发布版本（例如 1.1.0-beta.1）发布到 next 标签，不影响 latest
+          case "$VERSION" in
+            *-*) DIST_TAG=next ;;
+            *) DIST_TAG=latest ;;
+          esac
+          npm publish --provenance --access public --tag "$DIST_TAG"
