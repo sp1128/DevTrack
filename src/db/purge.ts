@@ -53,6 +53,10 @@ export function setMeta(db: DB, key: string, value: string): void {
   ).run(key, value);
 }
 
+export function deleteMeta(db: DB, key: string): void {
+  db.prepare('DELETE FROM meta WHERE key = ?').run(key);
+}
+
 const AUTO_PURGE_KEY = 'last_auto_purge_at';
 const AUTO_PURGE_INTERVAL_MS = 24 * 3600 * 1000;
 

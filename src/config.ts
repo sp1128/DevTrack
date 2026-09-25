@@ -114,6 +114,14 @@ export const ConfigSchema = z.object({
         .default({}),
     })
     .prefault({}),
+  report: z
+    .object({
+      /** 每周第一次使用 Claude Code 时，在后台自动生成上周的周报（不覆盖已有文件）。 */
+      autoWeekly: z.boolean().default(true),
+      /** 自动生成的周报是否包含 AI 总结（需要配置 AI）。 */
+      autoAi: z.boolean().default(false),
+    })
+    .prefault({}),
   activity: z
     .object({
       /** 两次活动间隔超过该分钟数视为空闲，不计入开发时长。 */

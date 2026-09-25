@@ -55,6 +55,8 @@ describe('CLI 端到端（dist/cli.js）', () => {
   it('init：创建数据目录、配置、数据库并安装 Hook（保留已有 Hook）', () => {
     const r = run(['init']);
     expect(r.code).toBe(0);
+    // 关闭后台自动周报，避免后台进程与后续用例（reset 等）同时访问数据目录
+    expect(run(['config', 'set', 'report.autoWeekly', 'false']).code).toBe(0);
     expect(fs.existsSync(path.join(home, 'devtrack.db'))).toBe(true);
     expect(fs.existsSync(path.join(home, 'config.json'))).toBe(true);
     const settings = JSON.parse(fs.readFileSync(path.join(claudeDir, 'settings.json'), 'utf8'));

@@ -3,8 +3,12 @@ import { formatCost, formatDuration, formatNumber, formatTokens, percent, shortH
 import { formatDate, formatDateTime, weekdayLabel } from '../core/time.js';
 import type { PeriodStats } from '../stats/queries.js';
 
+export type ReportPeriod = 'week' | 'month';
+
 export interface ReportOptions {
   generatedAt: Date;
+  /** 周报（默认）或月报 */
+  period?: ReportPeriod;
   aiSummary?: { text: string; provider: string; model: string };
   /** AI 生成失败时的说明 */
   aiError?: string;
@@ -37,19 +41,21 @@ function categoryLabel(category: string): string {
 }
 
 export function buildWeeklyReport(stats: PeriodStats, options: ReportOptions): string {
+  const period = options.period ?? 'week';
+  const P = period === 'week' ? '本周' : '本月';
   const start = new Date(stats.range.start);
   const lastDay = new Date(new Date(stats.range.end).getTime() - 1);
   const lines: string[] = [];
   const push = (...l: string[]) => lines.push(...l);
 
-  push(`# DevTrack 开发周报 · ${stats.range.label}`, '');
+  push(`# DevTrack 开发${period === 'week' ? '周报' : '月报'} · ${stats.range.label}`, '');
   push(
     `> 统计区间：${formatDate(start)}（${weekdayLabel(start)}）至 ${formatDate(lastDay)}（${weekdayLabel(lastDay)}） · 生成时间：${formatDateTime(options.generatedAt)}`,
     '',
   );
 
   // 一、概况
-  push('## 一、本周开发概况', '');
+  push(`## 一、${P}开发概况`, '');
   const t = stats.commitTotals;
   push(
     ...table(
@@ -115,7 +121,7 @@ export function buildWeeklyReport(stats: PeriodStats, options: ReportOptions): s
   // 二、项目
   push('## 二、项目', '');
   if (stats.projects.length === 0) {
-    push('本周没有记录到项目活动。', '');
+    push(`${P}没有记录到项目活动。`, '');
   } else {
     push(
       ...table(
@@ -157,22 +163,22 @@ export function buildWeeklyReport(stats: PeriodStats, options: ReportOptions): s
       const when = task.completedAt ? weekdayLabel(new Date(task.completedAt)) : '';
       push(`- [x] ${task.title}（${task.projectName}${when ? `，${when}` : ''}）`);
     }
-    if (stats.tasks.open > 0) push('', `另有 ${stats.tasks.open} 个本周创建的任务尚未完成。`);
+    if (stats.tasks.open > 0) push('', `另有 ${stats.tasks.open} 个${P}创建的任务尚未完成。`);
     push('');
   } else if (stats.commits.length > 0) {
-    push('本周没有记录到 Claude 任务清单（新版模型默认不启用任务工具），以下根据 Git 提交推断：', '');
+    push(`${P}没有记录到 Claude 任务清单（新版模型默认不启用任务工具），以下根据 Git 提交推断：`, '');
     for (const c of [...stats.commits].reverse().slice(0, 30)) {
       push(`- [x] ${c.message}（${c.projectName}，${weekdayLabel(new Date(c.timestamp))}）`);
     }
     push('');
   } else {
-    push('本周没有记录到已完成的任务。', '');
+    push(`${P}没有记录到已完成的任务。`, '');
   }
 
   // 四、Git 活动
   push('## 四、Git 活动', '');
   if (stats.commits.length === 0) {
-    push('本周没有 Git 提交。', '');
+    push(`${P}没有 Git 提交。`, '');
   } else {
     const withClaude = stats.commits.filter((c) => c.withClaude).length;
     push(
@@ -198,7 +204,7 @@ export function buildWeeklyReport(stats: PeriodStats, options: ReportOptions): s
   // 五、文件修改
   push('## 五、文件修改', '');
   if (stats.files.distinct === 0) {
-    push('本周没有记录到文件修改。', '');
+    push(`${P}没有记录到文件修改。`, '');
   } else {
     push(
       `共修改 ${stats.files.distinct} 个文件（${stats.files.edits} 次修改），其中新增 ${stats.files.created} 个、删除 ${stats.files.deleted} 个。`,
@@ -233,7 +239,7 @@ export function buildWeeklyReport(stats: PeriodStats, options: ReportOptions): s
   if (toolFailures.length > 0) {
     issues.push('', `工具调用失败：${toolFailures.map((tool) => `${tool.tool} ${tool.failures} 次`).join('，')}`);
   }
-  if (issues.length === 0) push('本周未检测到失败的构建、测试命令或工具调用。', '');
+  if (issues.length === 0) push(`${P}未检测到失败的构建、测试命令或工具调用。`, '');
   else push(...issues, '');
 
   // 七、AI 总结

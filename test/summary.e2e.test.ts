@@ -46,6 +46,7 @@ describe('会话摘要端到端：SessionEnd 后台生成（dist/cli.js）', () 
       path.join(home, 'config.json'),
       JSON.stringify({
         collect: { git: false },
+        report: { autoWeekly: false },
         ai: {
           provider: 'openai-compatible',
           baseUrl: `http://127.0.0.1:${port}/v1`,
