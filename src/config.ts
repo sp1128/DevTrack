@@ -87,6 +87,8 @@ export const ConfigSchema = z.object({
     .object({
       /** 只统计当前 git 用户（git config user.email）的提交。 */
       authorOnly: z.boolean().default(true),
+      /** authorOnly 开启时，除仓库的 user.email 外也算作"自己"的邮箱（公司 / 个人 / 旧邮箱等）。 */
+      authorEmails: z.array(z.string().min(3)).default([]),
       /** 首次发现项目时回溯读取多少天内的提交。 */
       backfillDays: z.number().int().min(0).max(365).default(14),
       /** 通过 git status 快照补充记录 Bash 或编辑器造成的文件变化。 */
