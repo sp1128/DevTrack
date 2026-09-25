@@ -15,17 +15,18 @@ describe('redact', () => {
   });
 
   it('脱敏常见令牌格式', () => {
+    // 均为虚构的样例。运行时拼接前缀，避免源码中出现完整的令牌格式而被 GitHub 密钥扫描误报
     const samples = [
-      'sk-ant-api03-abcdefghijklmnopqrstuvwxyz',
-      'sk-proj-ABCDEFGHIJKLMNOPQRST1234',
-      'ghp_abcdefghijklmnopqrstuvwxyz0123456789',
-      'github_pat_11ABCDEFG0123456789_abcdefghijklmnop',
-      'glpat-abcdefghijklmnopqrst',
-      'xoxb-1234567890-abcdefghij',
-      'AKIAABCDEFGHIJKLMNOP',
-      'AIzaSyA1234567890abcdefghijklmnopqrstuv',
-      'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U',
-    ];
+      ['sk-ant-', 'api03-abcdefghijklmnopqrstuvwxyz'],
+      ['sk-proj-', 'ABCDEFGHIJKLMNOPQRST1234'],
+      ['ghp_', 'abcdefghijklmnopqrstuvwxyz0123456789'],
+      ['github_pat_', '11ABCDEFG0123456789_abcdefghijklmnop'],
+      ['glpat-', 'abcdefghijklmnopqrst'],
+      ['xoxb-', '1234567890-abcdefghij'],
+      ['AKIA', 'ABCDEFGHIJKLMNOP'],
+      ['AIza', 'SyA1234567890abcdefghijklmnopqrstuv'],
+      ['eyJhbGciOiJIUzI1NiJ9.', 'eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U'],
+    ].map(([prefix, rest]) => prefix! + rest!);
     for (const s of samples) {
       const out = redact(`echo ${s}`);
       expect(out, s).not.toContain(s);
@@ -72,7 +73,8 @@ describe('redact', () => {
   });
 
   it('脱敏 SSH 私钥', () => {
-    const key = '-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAA\n-----END OPENSSH PRIVATE KEY-----';
+    const kind = 'OPENSSH PRIVATE ' + 'KEY';
+    const key = `-----BEGIN ${kind}-----\nb3BlbnNzaC1rZXktdjEAAAAA\n-----END ${kind}-----`;
     expect(redact(`echo "${key}" > id`)).toBe('echo "[REDACTED PRIVATE KEY]" > id');
   });
 
