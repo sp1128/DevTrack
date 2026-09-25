@@ -37,6 +37,7 @@ devtrack today    # 今天干了什么
 - [AI 周报（可选）](#ai-周报可选)
 - [会话 AI 摘要（可选）](#会话-ai-摘要可选)
 - [Token 用量与费用（可选）](#token-用量与费用可选)
+- [英文输出（English output）](#英文输出english-output)
 - [数据保存在哪里](#数据保存在哪里)
 - [隐私与安全](#隐私与安全)
 - [如何删除数据](#如何删除数据)
@@ -407,6 +408,32 @@ Token 用量（估算费用）
 - 费用为按 API 标价的估算，仅供参考。使用 Pro / Max 订阅时不按 token 计费，可以把它当作"用量折合 API 价格"。
 - 只统计开启之后的会话回合；已经结束的会话不会补录。
 
+## 英文输出（English output）
+
+统计输出与报告支持英文：
+
+```bash
+devtrack today --lang en                # 单次使用英文
+export DEVTRACK_LANG=en                 # 当前终端都使用英文
+devtrack config set lang en             # 永久切换（lang: zh / en）
+```
+
+```text
+Today · 2026-09-25 (Fri)
+
+  Active time      3h 12m
+  Claude sessions  4 (1 active)
+  Projects         2
+  Files modified   18 (42 edits)
+  Git commits      5 (+320 / -41 lines)
+  Tasks completed  3
+  Commands run     27 (2 failed)
+```
+
+优先级：`--lang` 参数 > `DEVTRACK_LANG` 环境变量 > 配置 `lang`（默认 `zh`）。
+
+英文覆盖 `today`、`week`、`month`、`project`、`stats`、`heatmap`、`report`（周报 / 月报，含 AI 总结与会话摘要的生成语言）；`init`、`doctor`、`config`、`purge` 等管理命令和错误提示目前仍为中文。
+
 ## 数据保存在哪里
 
 所有数据只保存在本机：
@@ -502,6 +529,7 @@ DEVTRACK_DISABLE=1 claude
 | 配置项 | 默认值 | 说明 |
 | --- | --- | --- |
 | `enabled` | `true` | 采集总开关 |
+| `lang` | `zh` | 统计输出与报告的语言：`zh` / `en` |
 | `collect.commands` | `true` | 记录 Bash / PowerShell 命令 |
 | `collect.fileChanges` | `true` | 记录文件修改 |
 | `collect.git` | `true` | 读取 Git 提交 |

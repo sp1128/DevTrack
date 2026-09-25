@@ -10,6 +10,7 @@ import { collectPeriodStats } from '../../stats/queries.js';
 import { CliError, printJson, withCli } from '../context.js';
 import { c } from '../format.js';
 import { AUTO_REPORT_NOTICE_KEY } from '../notice.js';
+import { L } from '../../i18n.js';
 
 export interface ReportCommandOptions {
   week?: string;
@@ -76,14 +77,21 @@ async function generateReport(options: ReportCommandOptions): Promise<void> {
     let aiError: string | undefined;
     if (useAi) {
       if (!options.auto) {
-        console.error(c.gray(`正在调用 ${config.ai.provider} 生成 AI 总结（只发送统计数据，不发送源代码）…`));
+        console.error(
+          c.gray(
+            L(
+              `正在调用 ${config.ai.provider} 生成 AI 总结（只发送统计数据，不发送源代码）…`,
+              `Calling ${config.ai.provider} for the AI summary (statistics only, no source code)…`,
+            ),
+          ),
+        );
       }
       try {
         aiSummary = await generateAiSummary(stats, config, {}, period);
       } catch (err) {
         aiError = err instanceof AiError ? err.message : (err as Error).message;
         if (options.auto) logError('auto-report:ai', err);
-        else console.error(c.yellow(`AI 总结生成失败：${aiError}`));
+        else console.error(c.yellow(L(`AI 总结生成失败：${aiError}`, `AI summary failed: ${aiError}`)));
       }
     }
 
@@ -98,7 +106,8 @@ async function generateReport(options: ReportCommandOptions): Promise<void> {
       setMeta(db, AUTO_REPORT_NOTICE_KEY, target);
       return;
     }
-    console.log(`${c.green('✔')} ${period === 'week' ? '周报' : '月报'}已生成：${tildify(target)}`);
+    const kind = period === 'week' ? L('周报', 'Weekly report') : L('月报', 'Monthly report');
+    console.log(`${c.green('✔')} ${L(`${kind}已生成：`, `${kind} saved: `)}${tildify(target)}`);
   });
 }
 

@@ -4,6 +4,7 @@ import { syncAllProjects } from '../core/gitSync.js';
 import { openDatabase, type DB } from '../db/database.js';
 import { autoPurge } from '../db/purge.js';
 import { closeStaleSessions } from '../db/repo.js';
+import { setLang } from '../i18n.js';
 import { getPaths, type DevTrackPaths } from '../paths.js';
 
 export class CliError extends Error {
@@ -38,6 +39,8 @@ export function loadConfigOrThrow(file?: string): DevTrackConfig {
 export function openCli(options: { sync?: boolean } = {}): CliContext {
   const paths = getPaths();
   const config = loadConfigOrThrow(paths.configFile);
+  // --lang / DEVTRACK_LANG 已显式指定时不会被覆盖
+  setLang(config.lang);
   const db = openDatabase(paths.dbFile);
   const now = new Date();
   closeStaleSessions(db, now);

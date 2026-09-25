@@ -3,6 +3,7 @@ import { formatDate, weekRange } from '../../core/time.js';
 import { collectPeriodStats, type DailySummary } from '../../stats/queries.js';
 import { CliError, printJson, withCli } from '../context.js';
 import { c, color256, colorEnabled, displayWidth } from '../format.js';
+import { getLang, L } from '../../i18n.js';
 
 export type HeatmapMetric = 'time' | 'commits' | 'sessions';
 
@@ -13,11 +14,13 @@ export interface HeatmapOptions {
   sync?: boolean;
 }
 
-const METRICS: Record<HeatmapMetric, { label: string; value: (d: DailySummary) => number }> = {
-  time: { label: '开发时长', value: (d) => d.activeSeconds },
-  commits: { label: 'Git 提交', value: (d) => d.commits },
-  sessions: { label: 'Claude 会话', value: (d) => d.sessions },
+const METRICS: Record<HeatmapMetric, { label: () => string; value: (d: DailySummary) => number }> = {
+  time: { label: () => L('开发时长', 'Active time'), value: (d) => d.activeSeconds },
+  commits: { label: () => L('Git 提交', 'Git commits'), value: (d) => d.commits },
+  sessions: { label: () => L('Claude 会话', 'Claude sessions'), value: (d) => d.sessions },
 };
+
+const MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /** GitHub 风格的绿色（256 色）；0 级为灰色。 */
 const LEVEL_COLORS = [238, 22, 28, 34, 46];
@@ -78,15 +81,15 @@ export function renderHeatmap(daily: DailySummary[], metric: HeatmapMetric, toda
     lastMonth = month;
     const target = 4 + w * 2;
     if (col > 0 && target <= col) continue;
-    const label = `${Number(month)}月`;
+    const label = getLang() === 'en' ? MONTHS_EN[Number(month) - 1]! : `${Number(month)}月`;
     header += ' '.repeat(target - col) + label;
     col = target + displayWidth(label);
   }
 
-  const rowLabels = ['一', '', '三', '', '五', '', '日'];
+  const rowLabels = getLang() === 'en' ? ['Mon', '', 'Wed', '', 'Fri', '', 'Sun'] : ['一', '', '三', '', '五', '', '日'];
   const lines = [c.gray(header.trimEnd())];
   for (let r = 0; r < 7; r++) {
-    let line = rowLabels[r] ? c.gray(`${rowLabels[r]}  `) : '    ';
+    let line = rowLabels[r] ? c.gray(rowLabels[r]!.padEnd(4 - displayWidth(rowLabels[r]!) + rowLabels[r]!.length, ' ')) : '    ';
     for (let w = 0; w < weeks; w++) {
       const d = daily[w * 7 + r];
       const level = d ? levelByDate.get(d.date) : undefined;
@@ -94,15 +97,18 @@ export function renderHeatmap(daily: DailySummary[], metric: HeatmapMetric, toda
     }
     lines.push(line.trimEnd());
   }
-  lines.push('', `    ${c.gray('少')} ${[0, 1, 2, 3, 4].map(cell).join(' ')} ${c.gray('多')}`);
+  lines.push('', `    ${c.gray(L('少', 'Less'))} ${[0, 1, 2, 3, 4].map(cell).join(' ')} ${c.gray(L('多', 'More'))}`);
 
   const total = shown.reduce((n, d) => n + def.value(d), 0);
   const activeDays = shown.filter((d) => d.activeSeconds > 0 || d.commits > 0).length;
   const { longest, current } = streaks(shown.map((d) => d.activeSeconds > 0 || d.commits > 0));
-  const totalText = metric === 'time' ? formatDuration(total) : `${total} ${metric === 'commits' ? '次' : '个'}`;
+  const totalText = metric === 'time' ? formatDuration(total) : L(`${total} ${metric === 'commits' ? '次' : '个'}`, String(total));
   lines.push(
     '',
-    `  ${def.label} ${c.bold(totalText)} · 活跃 ${c.bold(String(activeDays))} 天 · 最长连续 ${longest} 天 · 当前连续 ${current} 天`,
+    L(
+      `  ${def.label()} ${c.bold(totalText)} · 活跃 ${c.bold(String(activeDays))} 天 · 最长连续 ${longest} 天 · 当前连续 ${current} 天`,
+      `  ${def.label()} ${c.bold(totalText)} · ${c.bold(String(activeDays))} active days · longest streak ${longest} days · current streak ${current} days`,
+    ),
   );
   return lines.join('\n') + '\n';
 }
@@ -121,7 +127,7 @@ export async function runHeatmap(options: HeatmapOptions): Promise<void> {
   }
 
   await withCli({ sync: options.sync }, ({ db, config, now }) => {
-    const range = { start: weekRange(now, -(weeks - 1)).start, end: weekRange(now).end, label: `最近 ${weeks} 周` };
+    const range = { start: weekRange(now, -(weeks - 1)).start, end: weekRange(now).end, label: L(`最近 ${weeks} 周`, `Last ${weeks} weeks`) };
     const stats = collectPeriodStats(db, range, { idleMinutes: config.activity.idleMinutes, topFiles: 0 });
     const todayLabel = formatDate(now);
     if (options.json) {
@@ -132,7 +138,10 @@ export async function runHeatmap(options: HeatmapOptions): Promise<void> {
       );
       return;
     }
-    console.log(c.bold(`开发活跃度 · 最近 ${weeks} 周`) + c.gray(`（${METRICS[metric].label}）`));
+    console.log(
+      c.bold(L(`开发活跃度 · 最近 ${weeks} 周`, `Development activity · last ${weeks} weeks`)) +
+        c.gray(L(`（${METRICS[metric].label()}）`, ` (${METRICS[metric].label()})`)),
+    );
     console.log('');
     process.stdout.write(renderHeatmap(stats.daily, metric, todayLabel));
   });

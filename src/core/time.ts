@@ -17,6 +17,7 @@ import { subMonths } from 'date-fns/subMonths';
 import { subWeeks } from 'date-fns/subWeeks';
 import { subYears } from 'date-fns/subYears';
 import { subHours } from 'date-fns/subHours';
+import { getLang } from '../i18n.js';
 
 export interface DateRange {
   /** 包含 */
@@ -27,9 +28,10 @@ export interface DateRange {
 }
 
 const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function weekdayLabel(d: Date): string {
-  return WEEKDAYS[d.getDay()]!;
+  return (getLang() === 'en' ? WEEKDAYS_EN : WEEKDAYS)[d.getDay()]!;
 }
 
 export function formatDate(d: Date): string {
@@ -46,7 +48,8 @@ export function formatTime(d: Date): string {
 
 export function todayRange(now: Date, offsetDays = 0): DateRange {
   const start = addDays(startOfDay(now), offsetDays);
-  return { start, end: addDays(start, 1), label: `${formatDate(start)}（${weekdayLabel(start)}）` };
+  const weekday = weekdayLabel(start);
+  return { start, end: addDays(start, 1), label: getLang() === 'en' ? `${formatDate(start)} (${weekday})` : `${formatDate(start)}（${weekday}）` };
 }
 
 /** ISO 周（周一为一周的开始）。 */

@@ -141,6 +141,23 @@ describe('CLI 端到端（dist/cli.js）', () => {
     expect(run(['week', '--week', 'bad']).code).toBe(1);
   });
 
+  it('--lang en / DEVTRACK_LANG / 配置 lang 切换输出语言', () => {
+    expect(run(['today', '--no-sync', '--lang', 'en']).stdout).toContain('Active time');
+    expect(run(['--lang', 'en', 'week', '--no-sync']).stdout).toContain('This week');
+    expect(run(['today', '--no-sync', '--lang', 'fr']).code).toBe(1);
+    const saved = env.DEVTRACK_LANG;
+    env.DEVTRACK_LANG = 'en';
+    expect(run(['today', '--no-sync']).stdout).toContain('Today');
+    // --lang 优先于环境变量
+    expect(run(['today', '--no-sync', '--lang', 'zh']).stdout).toContain('开发时长');
+    if (saved === undefined) delete env.DEVTRACK_LANG;
+    else env.DEVTRACK_LANG = saved;
+    expect(run(['config', 'set', 'lang', 'en']).code).toBe(0);
+    expect(run(['report', '--stdout', '--no-sync']).stdout).toContain('# DevTrack Weekly Report');
+    expect(run(['today', '--no-sync', '--lang', 'zh']).stdout).toContain('开发时长');
+    expect(run(['config', 'set', 'lang', 'zh']).code).toBe(0);
+  });
+
   it('report：生成 ~/.devtrack/reports/<年>-W<周>.md', () => {
     const r = run(['report', '--week', '2026-W39']);
     expect(r.code).toBe(0);
