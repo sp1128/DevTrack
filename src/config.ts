@@ -130,6 +130,10 @@ export const ConfigSchema = z.object({
       /** 是否把文件路径发送给 AI（默认只发送统计数字）。 */
       includeFilePaths: z.boolean().default(false),
       timeoutSeconds: z.number().int().min(5).max(600).default(120),
+      /** 会话结束后用 AI 生成一句话摘要（只发送该会话的统计数据）。默认关闭。 */
+      sessionSummary: z.boolean().default(false),
+      /** 会话摘要使用的模型；默认 Anthropic 用 claude-haiku-4-5，其他提供商沿用 ai.model。 */
+      sessionSummaryModel: z.string().min(1).optional(),
     })
     .prefault({}),
 });

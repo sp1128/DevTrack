@@ -76,13 +76,13 @@ function renderSessions(stats: PeriodStats, limit: number): string[] {
   const out = [heading(`Claude 会话（${stats.sessions.length}）`)];
   out.push(
     table(
-      ['时间', '项目', '活跃时长', '状态', '标题'],
+      ['时间', '项目', '活跃时长', '状态', '摘要 / 标题'],
       list.map((s) => [
         sessionTimeRange(s),
         s.projectName,
         formatDuration(s.activeSeconds, true),
         s.status === 'active' ? c.green(STATUS_LABELS[s.status]!) : (STATUS_LABELS[s.status] ?? s.status),
-        s.title ? truncate(s.title, 40) : c.gray('-'),
+        s.summary ? truncate(s.summary, 60) : s.title ? c.gray(truncate(s.title, 40)) : c.gray('-'),
       ]),
       { maxWidths: [undefined, 24] },
     ),

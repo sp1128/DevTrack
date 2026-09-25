@@ -76,7 +76,11 @@ export async function runHook(stdin: NodeJS.ReadableStream & { isTTY?: boolean }
     if (error) logError('config', error);
     if (!config.enabled) return;
     db = openDatabase(getPaths().dbFile);
-    handleHookEvent({ db, config, now: new Date() }, parsed.data);
+    const result = handleHookEvent({ db, config, now: new Date() }, parsed.data);
+    if (eventName === 'SessionEnd' && result.status === 'recorded' && config.ai.sessionSummary) {
+      const { spawnSessionSummary } = await import('./spawn.js');
+      spawnSessionSummary(parsed.data.session_id);
+    }
   } catch (err) {
     logError(`hook:${eventName}`, err);
   } finally {

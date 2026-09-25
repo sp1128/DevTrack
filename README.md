@@ -33,6 +33,7 @@ devtrack today    # 今天干了什么
 - [查看项目](#查看项目)
 - [生成周报](#生成周报)
 - [AI 周报（可选）](#ai-周报可选)
+- [会话 AI 摘要（可选）](#会话-ai-摘要可选)
 - [Token 用量与费用（可选）](#token-用量与费用可选)
 - [数据保存在哪里](#数据保存在哪里)
 - [隐私与安全](#隐私与安全)
@@ -285,6 +286,31 @@ export DEVTRACK_AI_API_KEY=...
 
 也可以用 `devtrack config set ai.apiKeyEnv MY_KEY_VAR` 指定从哪个环境变量读取 Key；`DEVTRACK_AI_API_KEY` 对所有提供商都有效。AI 调用失败时周报仍会生成，并在末尾注明失败原因。
 
+## 会话 AI 摘要（可选）
+
+默认关闭。开启后，每个 Claude Code 会话结束时，DevTrack 会在后台用 AI 为这次会话生成一句话摘要（"这次会话做了什么"），显示在 `today` 的会话列表和周报的项目小节中，AI 周报也会参考这些摘要：
+
+```bash
+devtrack config set ai.sessionSummary true
+```
+
+- **发送的数据**：与 AI 周报相同的原则，只发送这个会话的统计数据——项目名、活跃时长、工具调用次数、修改文件数、命令类别与失败次数、会话期间的提交说明、完成的任务标题（均已脱敏）。**不发送提示词、对话内容、源代码和命令原文**；文件路径只在 `ai.includeFilePaths` 开启时发送（开启后摘要会更具体）。
+- **模型**：使用 `ai.provider` 配置的提供商。Anthropic 默认使用更快、更便宜的 `claude-haiku-4-5`，其他提供商沿用 `ai.model`；可用 `ai.sessionSummaryModel` 单独指定。
+- **API Key**：后台进程从 Claude Code 的环境变量中读取（与 AI 周报相同，例如 `ANTHROPIC_API_KEY`），所以需要在启动 Claude Code 的环境里设置。
+- **不影响 Claude Code**：AI 调用在独立的后台进程中进行，`SessionEnd` Hook 立即返回；失败只写入 `~/.devtrack/logs/devtrack.log`。
+- 没有工具调用、文件修改、提交或任务的会话会被跳过，不调用 AI。
+
+也可以手动为之前的会话补生成摘要：
+
+```bash
+devtrack summarize                 # 最近 7 天已结束、还没有摘要的会话
+devtrack summarize --since 4w      # 最近 4 周
+devtrack summarize --force         # 重新生成已有摘要
+devtrack summarize --dry-run       # 只打印将发送给 AI 的数据
+```
+
+`devtrack summarize` 不需要开启 `ai.sessionSummary`，适合只想偶尔手动生成的情况。
+
 ## Token 用量与费用（可选）
 
 默认关闭。开启后，DevTrack 在每轮回复结束（`Stop`）和会话结束（`SessionEnd`）时，从 Claude Code 的会话记录文件（Hook 输入中的 `transcript_path`，以及同一会话的子代理记录）中增量读取每次模型请求的 token 用量，并按公开标价估算费用：
@@ -428,6 +454,8 @@ DEVTRACK_DISABLE=1 claude
 | `ai.model` | 按提供商 | 模型名 |
 | `ai.baseUrl` | 按提供商 | 接口地址 |
 | `ai.apiKeyEnv` | 按提供商 | 读取 API Key 的环境变量名 |
+| `ai.sessionSummary` | `false` | 会话结束后在后台用 AI 生成一句话摘要（只发送该会话的统计数据） |
+| `ai.sessionSummaryModel` | 按提供商 | 会话摘要使用的模型；Anthropic 默认 `claude-haiku-4-5`，其他提供商沿用 `ai.model` |
 | `ai.includeFilePaths` | `false` | 是否向 AI 发送文件路径 |
 | `ai.timeoutSeconds` | `120` | AI 请求超时 |
 
@@ -502,6 +530,7 @@ devtrack today / week / month / project / report  ──>  读取数据库并统
 | `devtrack project [name]` | 项目列表 / 指定项目的统计 |
 | `devtrack report` | 生成 Markdown 周报（`--ai` 生成 AI 总结） |
 | `devtrack stats` | 全部记录的总体统计 |
+| `devtrack summarize` | 用 AI 为已结束的会话生成一句话摘要 |
 | `devtrack purge --before 30d` | 删除指定时间之前的数据 |
 | `devtrack reset` | 删除全部数据 |
 | `devtrack config [list\|get\|set\|unset\|reset\|path]` | 查看或修改配置 |

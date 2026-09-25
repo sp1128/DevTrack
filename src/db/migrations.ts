@@ -150,6 +150,15 @@ CREATE TABLE transcript_offsets (
 );
 `,
   },
+  {
+    version: 4,
+    sql: `
+ALTER TABLE sessions ADD COLUMN summary TEXT;
+ALTER TABLE sessions ADD COLUMN summarized_at TEXT;
+CREATE INDEX idx_commands_session ON commands(session_id);
+CREATE INDEX idx_git_commits_session ON git_commits(session_id);
+`,
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

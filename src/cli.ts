@@ -155,6 +155,22 @@ async function main(): Promise<void> {
     );
 
   program
+    .command('summarize')
+    .description('用 AI 为已结束的会话生成一句话摘要（只发送会话的统计数据，不发送对话内容与源代码）')
+    .option('--since <range>', '只处理该时间之后开始的会话，例如 7d、4w、2026-09-01', '7d')
+    .option('--session <id>', '只处理指定的 Claude Code 会话 ID')
+    .option('--force', '重新生成已有摘要')
+    .option('--limit <n>', '最多处理多少个会话', '20')
+    .option('--dry-run', '只打印将发送给 AI 的数据，不实际调用')
+    .option('--quiet', '不输出内容，错误只写入日志（Hook 自动调用时使用）')
+    .action(
+      action(async (opts) => {
+        const { runSummarize } = await import('./cli/commands/summarize.js');
+        await runSummarize(opts);
+      }),
+    );
+
+  program
     .command('stats')
     .description('全部记录的总体统计：累计时长、项目、提交、常用工具、命令类别')
     .option('--json', '以 JSON 输出')
@@ -234,7 +250,7 @@ async function main(): Promise<void> {
     );
   config
     .command('unset <key>')
-    .description('清除可选配置项（ai.model、ai.baseUrl、ai.apiKeyEnv）')
+    .description('清除可选配置项（ai.model、ai.baseUrl、ai.apiKeyEnv、ai.sessionSummaryModel）')
     .action(
       action(async (key: string) => {
         const { runConfigUnset } = await import('./cli/commands/config.js');

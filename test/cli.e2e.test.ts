@@ -47,7 +47,7 @@ describe('CLI 端到端（dist/cli.js）', () => {
     const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
     expect(run(['--version']).stdout.trim()).toBe(pkg.version);
     const help = run(['--help']).stdout;
-    for (const cmd of ['init', 'doctor', 'today', 'week', 'month', 'project', 'report', 'stats', 'purge', 'reset']) {
+    for (const cmd of ['init', 'doctor', 'today', 'week', 'month', 'project', 'report', 'summarize', 'stats', 'purge', 'reset']) {
       expect(help).toContain(cmd);
     }
   });

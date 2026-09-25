@@ -141,6 +141,11 @@ export function buildWeeklyReport(stats: PeriodStats, options: ReportOptions): s
       );
       const files = stats.files.top.filter((f) => f.projectId === p.id).slice(0, 5);
       if (files.length > 0) push(`- 主要修改：${files.map((f) => `${code(f.path)}（${f.edits}）`).join('、')}`);
+      const summaries = stats.sessions.filter((sess) => sess.projectId === p.id && sess.summary);
+      if (summaries.length > 0) {
+        push('- 会话摘要：');
+        for (const sess of summaries) push(`  - ${weekdayLabel(new Date(sess.startedAt))}：${sess.summary}`);
+      }
       push('');
     }
   }

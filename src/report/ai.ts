@@ -93,6 +93,10 @@ export function buildAiPayload(stats: PeriodStats, config: DevTrackConfig): Reco
   }
   const titles = stats.sessions.map((s) => s.title).filter((t): t is string => !!t);
   if (titles.length > 0) payload.sessionTitles = titles.slice(0, 30);
+  const summaries = stats.sessions
+    .filter((s) => s.summary)
+    .map((s) => ({ project: s.projectName, date: s.startedAt.slice(0, 10), summary: s.summary }));
+  if (summaries.length > 0) payload.sessionSummaries = summaries.slice(0, 40);
   if (config.ai.includeFilePaths) {
     payload.topFiles = stats.files.top.map((f) => ({ project: f.projectName, path: f.path, edits: f.edits }));
   }
@@ -120,6 +124,13 @@ function resolveApiKey(config: DevTrackConfig, env: NodeJS.ProcessEnv): string |
 
 function userPrompt(payload: Record<string, unknown>): string {
   return `以下是本周的开发统计数据：\n\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\``;
+}
+
+/** 一次文本生成请求。 */
+export interface AiPrompt {
+  system: string;
+  user: string;
+  maxTokens: number;
 }
 
 /** Anthropic 客户端的最小接口（便于测试时注入替身）。 */
@@ -151,12 +162,7 @@ async function defaultCreateAnthropic(options: { apiKey?: string; baseURL?: stri
   }) as unknown as AnthropicLike;
 }
 
-async function callAnthropic(
-  config: DevTrackConfig,
-  model: string,
-  payload: Record<string, unknown>,
-  deps: AiDeps,
-): Promise<AiResult> {
+async function callAnthropic(config: DevTrackConfig, model: string, prompt: AiPrompt, deps: AiDeps): Promise<AiResult> {
   const env = deps.env ?? process.env;
   // 未设置 API Key 时交给 SDK 按官方顺序解析凭据（ANTHROPIC_API_KEY、ANTHROPIC_AUTH_TOKEN、ant auth 登录配置等）
   const apiKey = resolveApiKey(config, env);
@@ -176,9 +182,9 @@ async function callAnthropic(
   try {
     response = await client.beta.messages.create({
       model,
-      max_tokens: 16000,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userPrompt(payload) }],
+      max_tokens: prompt.maxTokens,
+      system: prompt.system,
+      messages: [{ role: 'user', content: prompt.user }],
       ...(useFallbacks ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' } : {}),
     });
   } catch (err) {
@@ -210,12 +216,7 @@ async function describeAnthropicError(err: unknown): Promise<string> {
   return (err as Error)?.message ?? String(err);
 }
 
-async function callOpenAICompatible(
-  config: DevTrackConfig,
-  model: string,
-  payload: Record<string, unknown>,
-  deps: AiDeps,
-): Promise<AiResult> {
+async function callOpenAICompatible(config: DevTrackConfig, model: string, prompt: AiPrompt, deps: AiDeps): Promise<AiResult> {
   const env = deps.env ?? process.env;
   const provider = config.ai.provider;
   const apiKey = resolveApiKey(config, env);
@@ -235,8 +236,8 @@ async function callOpenAICompatible(
       body: JSON.stringify({
         model,
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userPrompt(payload) },
+          { role: 'system', content: prompt.system },
+          { role: 'user', content: prompt.user },
         ],
         stream: false,
       }),
@@ -258,9 +259,14 @@ async function callOpenAICompatible(
   return { text: content.trim(), provider, model: data?.model ?? model };
 }
 
+/** 调用配置的 AI 提供商生成文本。 */
+export async function completeText(config: DevTrackConfig, model: string, prompt: AiPrompt, deps: AiDeps = {}): Promise<AiResult> {
+  if (config.ai.provider === 'anthropic') return callAnthropic(config, model, prompt, deps);
+  return callOpenAICompatible(config, model, prompt, deps);
+}
+
 export async function generateAiSummary(stats: PeriodStats, config: DevTrackConfig, deps: AiDeps = {}): Promise<AiResult> {
   const model = resolveModel(config);
   const payload = buildAiPayload(stats, config);
-  if (config.ai.provider === 'anthropic') return callAnthropic(config, model, payload, deps);
-  return callOpenAICompatible(config, model, payload, deps);
+  return completeText(config, model, { system: SYSTEM_PROMPT, user: userPrompt(payload), maxTokens: 16000 }, deps);
 }
