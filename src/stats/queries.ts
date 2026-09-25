@@ -9,6 +9,8 @@ export interface SessionSummary {
   projectId: number | null;
   projectName: string;
   title: string | null;
+  /** AI 生成的一句话摘要（ai.sessionSummary） */
+  summary: string | null;
   model: string | null;
   startedAt: string;
   endedAt: string | null;
@@ -188,7 +190,7 @@ export function collectPeriodStats(db: DB, range: DateRange, options: StatsOptio
   // ---- 会话 ----
   const sessionRows = db
     .prepare(
-      `SELECT id, session_id, project_id, title, model, started_at, ended_at, last_activity_at, status
+      `SELECT id, session_id, project_id, title, summary, model, started_at, ended_at, last_activity_at, status
          FROM sessions
         WHERE started_at < ? AND COALESCE(ended_at, last_activity_at) >= ?${projectFilter('project_id')}
         ORDER BY started_at`,
@@ -198,6 +200,7 @@ export function collectPeriodStats(db: DB, range: DateRange, options: StatsOptio
     session_id: string;
     project_id: number | null;
     title: string | null;
+    summary: string | null;
     model: string | null;
     started_at: string;
     ended_at: string | null;
@@ -210,6 +213,7 @@ export function collectPeriodStats(db: DB, range: DateRange, options: StatsOptio
     projectId: s.project_id,
     projectName: projectName(s.project_id),
     title: s.title,
+    summary: s.summary,
     model: s.model,
     startedAt: s.started_at,
     endedAt: s.ended_at,
