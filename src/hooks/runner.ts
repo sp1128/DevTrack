@@ -1,9 +1,9 @@
-import { formatZodError, loadConfigSafe } from '../config.js';
 import { openDatabase, type DB } from '../db/database.js';
 import { logError, writeLog } from '../logger.js';
 import { getPaths } from '../paths.js';
 import { handleHookEvent } from './handler.js';
-import { HookInputSchema } from './schema.js';
+import { parseHookInput } from './input.js';
+import { loadConfigFast } from '../configLite.js';
 
 /** 单次 Hook 处理的最长时间，超时直接退出（仍然是 0），绝不拖住 Claude Code。 */
 const HOOK_DEADLINE_MS = 8000;
@@ -66,14 +66,20 @@ export async function runHook(stdin: NodeJS.ReadableStream & { isTTY?: boolean }
       writeLog('error', 'hook', 'stdin 不是合法的 JSON，已跳过');
       return;
     }
-    const parsed = HookInputSchema.safeParse(payload);
+    const parsed = parseHookInput(payload);
     if (!parsed.success) {
-      writeLog('error', 'hook', `输入缺少必要字段：${formatZodError(parsed.error)}`);
+      writeLog('error', 'hook', `输入缺少必要字段：${parsed.error}`);
       return;
     }
     eventName = parsed.data.hook_event_name;
-    const { config, error } = loadConfigSafe();
-    if (error) logError('config', error);
+    // 常见配置用轻量解析；无法确定时才加载 zod 做完整校验（结果相同）
+    let config = loadConfigFast(getPaths().configFile);
+    if (!config) {
+      const { loadConfigSafe } = await import('../config.js');
+      const result = loadConfigSafe();
+      if (result.error) logError('config', result.error);
+      config = result.config;
+    }
     if (!config.enabled) return;
     db = openDatabase(getPaths().dbFile);
     const now = new Date();

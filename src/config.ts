@@ -4,53 +4,9 @@ import { z } from 'zod';
 import { LANGS } from './i18n.js';
 import { getPaths } from './paths.js';
 
-/** 默认忽略的"琐碎"命令：只读 / 查看类命令不计入命令统计（仍计入工具调用次数）。 */
-export const DEFAULT_IGNORED_COMMANDS = [
-  'ls',
-  'll',
-  'la',
-  'dir',
-  'pwd',
-  'cd',
-  'cat',
-  'bat',
-  'head',
-  'tail',
-  'less',
-  'more',
-  'echo',
-  'printf',
-  'wc',
-  'which',
-  'where',
-  'type',
-  'whoami',
-  'date',
-  'clear',
-  'true',
-  'sleep',
-  'file',
-  'stat',
-  'tree',
-  'du',
-  'df',
-  'sort',
-  'uniq',
-  'grep',
-  'rg',
-  'find',
-  'fd',
-  'jq',
-  'git status',
-  'git diff',
-  'git log',
-  'git show',
-  'git branch',
-  'git remote',
-  'git rev-parse',
-  'git ls-files',
-  'git blame',
-];
+import { DEFAULT_IGNORED_COMMANDS } from './configLite.js';
+
+export { DEFAULT_IGNORED_COMMANDS };
 
 export const AI_PROVIDERS = ['anthropic', 'openai', 'deepseek', 'openai-compatible'] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
