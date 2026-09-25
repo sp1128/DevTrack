@@ -237,7 +237,8 @@ describe('Hook 事件处理', () => {
 
   it('提交说明也会脱敏', () => {
     start();
-    commitFile(repo, 'x.txt', 'x', 'chore: rotate key sk-ant-api03-abcdefghijklmnopqrstuv');
+    // 虚构的令牌，拼接前缀以免被 GitHub 密钥扫描误报
+    commitFile(repo, 'x.txt', 'x', `chore: rotate key ${'sk-ant-'}api03-abcdefghijklmnopqrstuv`);
     send(db, config, { session_id: sid, hook_event_name: 'SessionEnd', cwd: repo, reason: 'other' });
     const msgs = rows<{ message: string }>(db, 'SELECT message FROM git_commits').map((r) => r.message);
     expect(msgs.join()).not.toContain('sk-ant');

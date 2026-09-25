@@ -107,7 +107,8 @@ describe('会话 AI 摘要', () => {
   });
 
   it('生成并保存摘要：默认用 Haiku，结果整理为单行并脱敏', async () => {
-    const { calls, deps } = fakeAnthropic('摘要：“为 shop 新增购物车模块并运行测试，API_KEY=sk-ant-abcdefghijklmnopqrstuvwxyz”\n\n补充说明');
+    // 虚构的令牌，拼接前缀以免被 GitHub 密钥扫描误报
+    const { calls, deps } = fakeAnthropic(`摘要：“为 shop 新增购物车模块并运行测试，API_KEY=${'sk-ant-'}abcdefghijklmnopqrstuvwxyz”\n\n补充说明`);
     const now = new Date('2026-09-25T10:00:00Z');
     const result = await summarizeSession(db, sessionIdOf('work'), config, now, deps);
     expect(calls[0]!.model).toBe('claude-haiku-4-5');
