@@ -497,14 +497,31 @@ test/                   Vitest 测试
 
 ### 发布到 npm（维护者）
 
-发布由 GitHub Actions 自动完成（`.github/workflows/release.yml`）：推送 `v*` 标签后，工作流会先检查 NPM_TOKEN 是否已配置、标签是否与 `package.json` 的版本一致、标签指向的提交是否在 `main` 上，然后运行类型检查和全部测试，最后带 [provenance（来源证明）](https://docs.npmjs.com/generating-provenance-statements) 发布。预发布版本（如 `1.1.0-beta.1`）发布到 `next` 标签，不影响 `latest`。
+发布由 GitHub Actions 自动完成（`.github/workflows/release.yml`）：推送 `v*` 标签后，工作流会先检查标签是否与 `package.json` 的版本一致、标签指向的提交是否在 `main` 上，然后运行类型检查和全部测试，最后带 [provenance（来源证明）](https://docs.npmjs.com/generating-provenance-statements) 发布。预发布版本（如 `1.1.0-beta.1`）发布到 `next` 标签，不影响 `latest`。
 
-一次性配置：
+#### 认证：推荐使用 Trusted Publishing（无需令牌）
 
-1. 在 npmjs.com 的 **Access Tokens** 页面生成 **Granular Access Token**：权限选 **Read and write**，勾选 **Bypass two-factor authentication**（CI 中无法输入验证码）。第一次发布前包还不存在，范围需要选 **All packages**；发布后可以换成只针对 `devtrack` 的令牌。
-2. 在 GitHub 仓库 **Settings → Secrets and variables → Actions** 中新建仓库密钥 `NPM_TOKEN`，值为上一步的令牌。npm 的发布令牌有有效期，过期后更新这个密钥即可。
+[Trusted Publishing](https://docs.npmjs.com/trusted-publishers) 通过 GitHub Actions 的 OIDC 身份直接发布，不需要保存任何 npm 令牌，也不存在令牌过期的问题。一次性配置（二选一）：
 
-发布新版本：
+- **命令行**（需要 npm 11.15 以上，账号已开启两步验证，并且已用 `npm login` 登录）：
+
+  ```bash
+  npm install -g npm@latest
+  npm trust github devtrack --file release.yml --repo sp1128/DevTrack --allow-publish
+  ```
+
+- **网页**：在 npmjs.com 打开 `devtrack` 的 **Settings → Trusted Publisher**，选择 **GitHub Actions**，填写 Organization or user `sp1128`、Repository `DevTrack`、Workflow filename `release.yml`，然后保存。
+
+配置完成并成功发布一次后，建议：
+
+1. 删除 GitHub 仓库密钥 `NPM_TOKEN`，并在 npm 上吊销对应的令牌；
+2. 在 `devtrack` 的 **Settings → Publishing access** 中选择要求两步验证并禁止令牌发布，这样只能通过受信任的工作流发布。
+
+#### 后备：NPM_TOKEN
+
+如果暂时无法使用 Trusted Publishing，可以在仓库 **Settings → Secrets and variables → Actions** 中添加密钥 `NPM_TOKEN`，值为 npm 的 **Granular Access Token**（权限选 **Read and write**，勾选 **Bypass two-factor authentication**）。工作流会优先尝试 Trusted Publishing，失败时才使用这个令牌。
+
+#### 发布新版本
 
 ```bash
 git checkout main && git pull
@@ -512,11 +529,7 @@ npm version patch -m "chore: 发布 v%s"   # 或 minor / major；会修改版本
 git push origin main --follow-tags       # 推送标签后自动发布
 ```
 
-首次发布：`devtrack` 这个名字以前有人发布过 1.0.0 后又撤销了，而 npm 上发布过的版本号永远不能再用，所以首个版本是 1.0.1。版本号已经改好，直接打标签即可：
-
-```bash
-git tag -a v1.0.1 -m "chore: 发布 v1.0.1" && git push origin v1.0.1
-```
+说明：`devtrack` 这个名字以前有人发布过 1.0.0 后又撤销了，而 npm 上发布过的版本号永远不能再用，所以首个版本是 1.0.1。
 
 发布结果可以在仓库的 **Actions → Release** 中查看。
 
