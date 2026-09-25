@@ -1,5 +1,6 @@
 import type { AiProvider, DevTrackConfig } from '../config.js';
 import { toHours } from '../core/format.js';
+import { getLang } from '../i18n.js';
 import type { PeriodStats } from '../stats/queries.js';
 import type { ReportPeriod } from './weekly.js';
 
@@ -32,6 +33,17 @@ const DEFAULT_KEY_ENVS: Record<AiProvider, string> = {
 const FALLBACK_MODELS = new Set(['claude-opus-5', 'claude-fable-5-1']);
 
 function systemPrompt(period: ReportPeriod): string {
+  if (getLang() === 'en') {
+    const [unit, cur, next] = period === 'week' ? ['one week', 'This Week', 'Next Week'] : ['one month', 'This Month', 'Next Month'];
+    return [
+      `You are a ${period === 'week' ? 'weekly' : 'monthly'} report assistant for a senior software engineer. The user provides ${unit} of development statistics (JSON, collected automatically by the local tool DevTrack).`,
+      `Write a ${period === 'week' ? 'weekly' : 'monthly'} development summary in English:`,
+      '1. Use only the given data. Do not invent work, numbers or conclusions that are not in the data; say so when data is insufficient.',
+      `2. Use Markdown with these sections in order: ### ${cur} Overview, ### Project Progress, ### Issues & Risks, ### Suggestions for ${next}.`,
+      `3. Keep it under ${period === 'week' ? 400 : 600} words, concise and specific.`,
+      '4. Output the body directly; do not repeat a heading like "AI Summary".',
+    ].join('\n');
+  }
   const [unit, cur, next] = period === 'week' ? ['一周', '本周', '下周'] : ['一个月', '本月', '下月'];
   return [
     `你是一名资深软件工程师的${period === 'week' ? '周报' : '月报'}助手。用户会提供${unit}的开发统计数据（JSON，由本地工具 DevTrack 自动采集）。`,
@@ -127,6 +139,9 @@ function resolveApiKey(config: DevTrackConfig, env: NodeJS.ProcessEnv): string |
 }
 
 function userPrompt(payload: Record<string, unknown>, period: ReportPeriod): string {
+  if (getLang() === 'en') {
+    return `Development statistics for ${period === 'week' ? 'this week' : 'this month'}:\n\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\``;
+  }
   return `以下是${period === 'week' ? '本周' : '本月'}的开发统计数据：\n\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\``;
 }
 

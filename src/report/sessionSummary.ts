@@ -1,5 +1,6 @@
 import type { DevTrackConfig } from '../config.js';
 import { sanitizeText } from '../core/text.js';
+import { getLang } from '../i18n.js';
 import type { DB } from '../db/database.js';
 import { buildIntervals, summarizeIntervals } from '../stats/activity.js';
 import { AiError, completeText, resolveModel, type AiDeps, type AiResult } from './ai.js';
@@ -11,13 +12,24 @@ import { AiError, completeText, resolveModel, type AiDeps, type AiResult } from 
  * 不包含源代码、命令原文和对话内容；文件路径只在 ai.includeFilePaths 开启时发送。
  */
 
-const SYSTEM_PROMPT = [
-  '你是开发日志助手。用户会提供一次 Claude Code 编程会话的统计数据（JSON，由本地工具 DevTrack 自动采集，不含对话内容）。',
-  '请用一句简体中文（不超过 60 个字）概括这次会话做了什么，要求：',
-  '1. 只依据给定数据，优先参考提交说明、任务标题、会话标题与修改的文件；不要编造数据中没有的内容。',
-  '2. 数据不足以判断具体内容时，客观描述活动，例如"在 xxx 项目中修改了 5 个文件并运行测试"。',
-  '3. 只输出这一句话，不要加引号、前缀或句末以外的标点说明。',
-].join('\n');
+function systemPrompt(): string {
+  if (getLang() === 'en') {
+    return [
+      'You are a development log assistant. The user provides statistics of one Claude Code programming session (JSON, collected automatically by the local tool DevTrack; no conversation content).',
+      'Summarize what this session did in one English sentence (at most 20 words):',
+      '1. Use only the given data; prefer commit messages, task titles, session title and modified files. Do not invent anything.',
+      '2. If the data is not enough to tell the specific work, describe the activity objectively, e.g. "Modified 5 files in project xxx and ran tests".',
+      '3. Output only that sentence, without quotes or prefixes.',
+    ].join('\n');
+  }
+  return [
+    '你是开发日志助手。用户会提供一次 Claude Code 编程会话的统计数据（JSON，由本地工具 DevTrack 自动采集，不含对话内容）。',
+    '请用一句简体中文（不超过 60 个字）概括这次会话做了什么，要求：',
+    '1. 只依据给定数据，优先参考提交说明、任务标题、会话标题与修改的文件；不要编造数据中没有的内容。',
+    '2. 数据不足以判断具体内容时，客观描述活动，例如"在 xxx 项目中修改了 5 个文件并运行测试"。',
+    '3. 只输出这一句话，不要加引号、前缀或句末以外的标点说明。',
+  ].join('\n');
+}
 
 /** 会话摘要默认使用的模型：Anthropic 用更快、更便宜的 Haiku；其他提供商沿用 ai.model。 */
 const DEFAULT_SUMMARY_MODELS: Partial<Record<DevTrackConfig['ai']['provider'], string>> = {
@@ -127,13 +139,14 @@ export function cleanSummary(text: string, extraPatterns?: string[]): string {
     .find((l) => l.length > 0) ?? '';
   const stripped = line
     .replace(/^[#>*\-\s]+/, '')
-    .replace(/^(摘要|总结|概括)[:：]\s*/, '')
+    .replace(/^(摘要|总结|概括|summary)[:：]\s*/i, '')
     .replace(/^["“「'](.*)["”」']$/, '$1')
     .trim();
   return sanitizeText(stripped, MAX_SUMMARY_LENGTH, extraPatterns);
 }
 
 export function userPrompt(payload: Record<string, unknown>): string {
+  if (getLang() === 'en') return `Statistics of this session:\n\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\``;
   return `以下是这次会话的统计数据：\n\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\``;
 }
 
@@ -148,7 +161,7 @@ export async function summarizeSession(
   const payload = buildSessionPayload(db, sessionId, config);
   if (!payload) return null;
   const model = resolveSummaryModel(config);
-  const result = await completeText(config, model, { system: SYSTEM_PROMPT, user: userPrompt(payload), maxTokens: 1024 }, deps);
+  const result = await completeText(config, model, { system: systemPrompt(), user: userPrompt(payload), maxTokens: 1024 }, deps);
   const summary = cleanSummary(result.text, config.privacy.redactPatterns);
   if (!summary) throw new AiError('AI 返回的摘要为空');
   db.prepare('UPDATE sessions SET summary = ?, summarized_at = ? WHERE id = ?').run(summary, now.toISOString(), sessionId);

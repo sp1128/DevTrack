@@ -1,3 +1,4 @@
+import { getLang } from '../i18n.js';
 import { redact } from './redact.js';
 
 export type CommandCategory = 'test' | 'build' | 'lint' | 'install' | 'git' | 'run' | 'other';
@@ -11,6 +12,22 @@ export const CATEGORY_LABELS: Record<CommandCategory, string> = {
   run: '运行',
   other: '其他',
 };
+
+const CATEGORY_LABELS_EN: Record<CommandCategory, string> = {
+  test: 'Test',
+  build: 'Build',
+  lint: 'Lint/format',
+  install: 'Install',
+  git: 'Git',
+  run: 'Run',
+  other: 'Other',
+};
+
+/** 命令类别的显示名称（随输出语言变化） */
+export function categoryLabel(category: string): string {
+  const labels = getLang() === 'en' ? CATEGORY_LABELS_EN : CATEGORY_LABELS;
+  return labels[category as CommandCategory] ?? category;
+}
 
 export interface SanitizeOptions {
   maxLength: number;

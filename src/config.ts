@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
+import { LANGS } from './i18n.js';
 import { getPaths } from './paths.js';
 
 /** 默认忽略的"琐碎"命令：只读 / 查看类命令不计入命令统计（仍计入工具调用次数）。 */
@@ -58,6 +59,8 @@ export const ConfigSchema = z.object({
   version: z.literal(1).default(1),
   /** 总开关：false 时 Hook 收到事件后直接忽略，不写入任何数据。 */
   enabled: z.boolean().default(true),
+  /** 统计输出与报告的语言：zh（中文）或 en（英文）。也可用 --lang 参数或 DEVTRACK_LANG 环境变量临时指定。 */
+  lang: z.enum(LANGS).default('zh'),
   /** 各类数据采集开关。会话与工具调用事件（不含任何内容）始终记录，用于计算开发时长。 */
   collect: z
     .object({

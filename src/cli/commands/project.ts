@@ -8,6 +8,7 @@ import { collectPeriodStats, earliestRecord } from '../../stats/queries.js';
 import { CliError, printJson, withCli } from '../context.js';
 import { c, heading, keyValues, table } from '../format.js';
 import { renderPeriodSummary } from '../render.js';
+import { L } from '../../i18n.js';
 
 export interface ProjectOptions {
   json?: boolean;
@@ -20,10 +21,10 @@ function resolveRange(db: Parameters<typeof earliestRecord>[0], now: Date, since
   if (since) {
     const cutoff = parseCutoff(since, now);
     if (!cutoff) throw new CliError(`无法解析时间范围：${since}（示例：7d、4w、3m、2026-09-01）`);
-    return { start: cutoff, end, label: `自 ${formatDateTime(cutoff)} 起` };
+    return { start: cutoff, end, label: L(`自 ${formatDateTime(cutoff)} 起`, `since ${formatDateTime(cutoff)}`) };
   }
   const first = earliestRecord(db) ?? now;
-  return { start: startOfDayLocal(first), end, label: '全部记录' };
+  return { start: startOfDayLocal(first), end, label: L('全部记录', 'all records') };
 }
 
 function findProject(projects: ProjectRow[], query: string): ProjectRow {
@@ -64,15 +65,22 @@ export async function runProject(query: string | undefined, options: ProjectOpti
         printJson(rows.map(({ project, summary }) => ({ ...project, stats: summary ?? null })));
         return;
       }
-      console.log(c.bold(`项目（${projects.length}）`) + c.gray(` · ${range.label}`));
+      console.log(c.bold(L(`项目（${projects.length}）`, `Projects (${projects.length})`)) + c.gray(` · ${range.label}`));
       if (projects.length === 0) {
-        console.log(c.gray('\n  还没有记录到任何项目。在任意目录中使用 Claude Code 后，项目会被自动识别。\n'));
+        console.log(
+          c.gray(
+            L(
+              '\n  还没有记录到任何项目。在任意目录中使用 Claude Code 后，项目会被自动识别。\n',
+              '\n  No projects recorded yet. Projects are detected automatically once you use Claude Code in a directory.\n',
+            ),
+          ),
+        );
         return;
       }
       console.log('');
       console.log(
         table(
-          ['项目', '开发时长', '会话', '提交', '文件', '最近活动', '路径'],
+          L('项目|开发时长|会话|提交|文件|最近活动|路径', 'Project|Active|Sessions|Commits|Files|Last active|Path').split('|'),
           rows
             .sort((a, b) => (b.summary?.activeSeconds ?? 0) - (a.summary?.activeSeconds ?? 0) || b.project.updated_at.localeCompare(a.project.updated_at))
             .map(({ project, summary }) => [
@@ -87,7 +95,7 @@ export async function runProject(query: string | undefined, options: ProjectOpti
           { alignRight: [1, 2, 3, 4], maxWidths: [24] },
         ),
       );
-      console.log(c.gray(`\n  查看详情：devtrack project <项目名>`));
+      console.log(c.gray(L('\n  查看详情：devtrack project <项目名>', '\n  Details: devtrack project <name>')));
       return;
     }
 
@@ -102,18 +110,18 @@ export async function runProject(query: string | undefined, options: ProjectOpti
       printJson({ project, stats });
       return;
     }
-    console.log(c.bold(`项目 · ${project.name}`));
+    console.log(c.bold(`${L('项目', 'Project')} · ${project.name}`));
     console.log('');
     console.log(
       keyValues([
-        ['路径', tildify(project.path)],
-        ['远程仓库', project.git_remote ?? c.gray('-')],
-        ['Git 仓库', project.is_git ? '是' : '否'],
-        ['首次记录', formatDateTime(new Date(project.created_at))],
-        ['最近活动', formatDateTime(new Date(project.updated_at))],
+        [L('路径', 'Path'), tildify(project.path)],
+        [L('远程仓库', 'Remote'), project.git_remote ?? c.gray('-')],
+        [L('Git 仓库', 'Git repository'), project.is_git ? L('是', 'yes') : L('否', 'no')],
+        [L('首次记录', 'First record'), formatDateTime(new Date(project.created_at))],
+        [L('最近活动', 'Last active'), formatDateTime(new Date(project.updated_at))],
       ]),
     );
-    console.log(heading('统计'));
+    console.log(heading(L('统计', 'Statistics')));
     process.stdout.write(renderPeriodSummary(stats, project.name, true, { singleProject: true }));
   });
 }

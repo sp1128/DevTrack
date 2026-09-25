@@ -8,6 +8,7 @@ import { collectPeriodStats, earliestRecord, type PeriodStats } from '../../stat
 import type { DevTrackConfig } from '../../config.js';
 import { CliError, withCli } from '../context.js';
 import { c } from '../format.js';
+import { L } from '../../i18n.js';
 
 export const EXPORT_TYPES = ['sessions', 'daily', 'projects', 'commits', 'files', 'commands', 'tasks', 'tokens'] as const;
 export type ExportType = (typeof EXPORT_TYPES)[number];
@@ -229,6 +230,6 @@ export async function runExport(options: ExportOptions): Promise<void> {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     // 写入文件时 CSV 加 UTF-8 BOM，Excel 才能正确识别中文
     fs.writeFileSync(target, format === 'csv' ? '﻿' + output : output, 'utf8');
-    console.error(`${c.green('✔')} 已导出到 ${tildify(target)}`);
+    console.error(`${c.green('✔')} ${L('已导出到', 'Exported to')} ${tildify(target)}`);
   });
 }

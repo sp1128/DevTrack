@@ -1,6 +1,14 @@
-/** 3725 -> "1小时2分钟"；45 -> "<1分钟"；0 -> "0分钟" */
+import { getLang } from '../i18n.js';
+
+/** 3725 -> "1小时2分钟"；45 -> "<1分钟"；0 -> "0分钟"（英文：1h 2m / <1m / 0m） */
 export function formatDuration(seconds: number, compact = false): string {
   const s = Math.max(0, Math.round(seconds));
+  if (getLang() === 'en') {
+    if (s < 60) return s === 0 ? '0m' : '<1m';
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    return h === 0 ? `${m}m` : m === 0 ? `${h}h` : `${h}h ${m}m`;
+  }
   if (s === 0) return compact ? '0分' : '0分钟';
   if (s < 60) return compact ? '<1分' : '<1分钟';
   const hours = Math.floor(s / 3600);

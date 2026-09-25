@@ -52,6 +52,14 @@ async function main(): Promise<void> {
 
   const noSync = () => new Option('--no-sync', '跳过查询前的 Git 提交同步');
 
+  // 输出语言：--lang 参数 > DEVTRACK_LANG 环境变量 > 配置 lang
+  const { isLang, setLang } = await import('./i18n.js');
+  program.addOption(new Option('--lang <lang>', '输出语言：zh（中文）或 en（英文），默认读取配置 lang').choices(['zh', 'en']));
+  program.hook('preAction', () => {
+    const lang = program.opts<{ lang?: string }>().lang ?? process.env.DEVTRACK_LANG;
+    if (isLang(lang)) setLang(lang, true);
+  });
+
   program
     .command('init')
     .description('初始化数据目录、数据库，并把 Hook 安装到 ~/.claude/settings.json')

@@ -3,6 +3,7 @@ import { collectPeriodStats } from '../../stats/queries.js';
 import { CliError, printJson, withCli } from '../context.js';
 import { consumeAutoReportNotice } from '../notice.js';
 import { renderPeriodSummary, renderToday } from '../render.js';
+import { L } from '../../i18n.js';
 
 export interface PeriodOptions {
   json?: boolean;
@@ -17,15 +18,15 @@ export interface PeriodOptions {
 export async function runToday(options: PeriodOptions): Promise<void> {
   await withCli({ sync: options.sync }, ({ db, config, now }) => {
     let range: DateRange;
-    let title = '今天';
+    let title = L('今天', 'Today');
     if (options.date) {
       const parsed = parseDay(options.date);
       if (!parsed) throw new CliError(`日期格式应为 YYYY-MM-DD：${options.date}`);
       range = parsed;
-      title = '当天';
+      title = L('当天', 'Day');
     } else if (options.yesterday) {
       range = todayRange(now, -1);
-      title = '昨天';
+      title = L('昨天', 'Yesterday');
     } else {
       range = todayRange(now);
     }
@@ -48,7 +49,11 @@ export async function runWeek(options: PeriodOptions): Promise<void> {
     const stats = collectPeriodStats(db, range, { idleMinutes: config.activity.idleMinutes, prices: config.usage.prices });
     if (options.json) printJson(stats);
     else {
-      const text = renderPeriodSummary(stats, options.last ? '上周' : options.week ? '周' : '本周', false);
+      const text = renderPeriodSummary(
+        stats,
+        options.last ? L('上周', 'Last week') : options.week ? L('周', 'Week') : L('本周', 'This week'),
+        false,
+      );
       process.stdout.write(text + consumeAutoReportNotice(db));
     }
   });
@@ -70,6 +75,9 @@ export async function runMonth(options: PeriodOptions): Promise<void> {
       topFiles: 15,
     });
     if (options.json) printJson(stats);
-    else process.stdout.write(renderPeriodSummary(stats, options.last ? '上月' : options.month ? '月' : '本月', true));
+    else {
+      const title = options.last ? L('上月', 'Last month') : options.month ? L('月', 'Month') : L('本月', 'This month');
+      process.stdout.write(renderPeriodSummary(stats, title, true));
+    }
   });
 }
