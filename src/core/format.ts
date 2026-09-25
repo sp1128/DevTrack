@@ -33,3 +33,18 @@ export function percent(part: number, total: number): string {
   if (total === 0) return '0%';
   return `${Math.round((part / total) * 100)}%`;
 }
+
+/** 1234 -> "1.2K"；3456789 -> "3.5M" */
+export function formatTokens(n: number): string {
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}K`;
+  if (n < 1_000_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  return `${(n / 1_000_000_000).toFixed(2)}B`;
+}
+
+/** 估算费用（美元） */
+export function formatCost(usd: number | null): string {
+  if (usd === null) return '-';
+  if (usd > 0 && usd < 0.01) return '<$0.01';
+  return `$${usd.toFixed(2)}`;
+}

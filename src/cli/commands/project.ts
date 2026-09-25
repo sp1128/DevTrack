@@ -57,7 +57,7 @@ export async function runProject(query: string | undefined, options: ProjectOpti
     const range = resolveRange(db, now, options.since);
 
     if (!query) {
-      const stats = collectPeriodStats(db, range, { idleMinutes: config.activity.idleMinutes });
+      const stats = collectPeriodStats(db, range, { idleMinutes: config.activity.idleMinutes, prices: config.usage.prices });
       const byId = new Map(stats.projects.map((p) => [p.id, p]));
       const rows = projects.map((p) => ({ project: p, summary: byId.get(p.id) }));
       if (options.json) {
@@ -94,6 +94,7 @@ export async function runProject(query: string | undefined, options: ProjectOpti
     const project = findProject(projects, query);
     const stats = collectPeriodStats(db, range, {
       idleMinutes: config.activity.idleMinutes,
+      prices: config.usage.prices,
       projectId: project.id,
       topFiles: 15,
     });

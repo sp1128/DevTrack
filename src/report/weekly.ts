@@ -1,5 +1,5 @@
 import { CATEGORY_LABELS, type CommandCategory } from '../core/commands.js';
-import { formatDuration, formatNumber, percent, shortHash } from '../core/format.js';
+import { formatCost, formatDuration, formatNumber, formatTokens, percent, shortHash } from '../core/format.js';
 import { formatDate, formatDateTime, weekdayLabel } from '../core/time.js';
 import type { PeriodStats } from '../stats/queries.js';
 
@@ -63,6 +63,9 @@ export function buildWeeklyReport(stats: PeriodStats, options: ReportOptions): s
         ['修改文件', `${stats.files.distinct} 个（${stats.files.edits} 次修改，新增 ${stats.files.created} 个）`],
         ['执行命令', `${stats.commands.total} 次（失败 ${stats.commands.failed} 次）`],
         ['完成任务', `${stats.tasks.completed.length} 个`],
+        ...(stats.tokens
+          ? [['Token / 估算费用', `${formatTokens(stats.tokens.total)} / ${formatCost(stats.tokens.cost)}`]]
+          : []),
       ],
     ),
     '',
@@ -84,6 +87,27 @@ export function buildWeeklyReport(stats: PeriodStats, options: ReportOptions): s
           ];
         }),
       ),
+      '',
+    );
+  }
+
+  if (stats.tokens) {
+    push('### Token 用量', '');
+    push(
+      ...table(
+        ['模型', '请求', '输入', '输出', '缓存读取', '缓存写入', '估算费用'],
+        stats.tokens.byModel.map((m) => [
+          m.model,
+          formatNumber(m.messages),
+          formatTokens(m.input),
+          formatTokens(m.output),
+          formatTokens(m.cacheRead),
+          formatTokens(m.cacheWrite),
+          m.cost === null ? '价格未知' : formatCost(m.cost),
+        ]),
+      ),
+      '',
+      '> 费用按 Anthropic 公开标价估算，仅供参考；订阅套餐（Pro / Max）不按 token 计费。',
       '',
     );
   }

@@ -227,7 +227,7 @@ function checkConfig(configFile: string): Check {
   try {
     const config = loadConfig(configFile);
     const disabled = Object.entries(config.collect)
-      .filter(([k, v]) => !v && k !== 'promptSummary')
+      .filter(([k, v]) => !v && k !== 'promptSummary' && k !== 'tokenUsage')
       .map(([k]) => k);
     if (!config.enabled) {
       return {
@@ -240,7 +240,7 @@ function checkConfig(configFile: string): Check {
     return {
       name: 'Configuration',
       status: 'ok',
-      message: `${tildify(configFile)}（数据保留：${config.retention.days > 0 ? `${config.retention.days} 天` : '永久'}${disabled.length ? `；已关闭：${disabled.join(', ')}` : ''}）`,
+      message: `${tildify(configFile)}（数据保留：${config.retention.days > 0 ? `${config.retention.days} 天` : '永久'}${config.collect.tokenUsage ? '；Token 统计：开启' : ''}${disabled.length ? `；已关闭：${disabled.join(', ')}` : ''}）`,
     };
   } catch (err) {
     return {

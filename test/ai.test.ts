@@ -24,6 +24,8 @@ function sampleStats(): PeriodStats {
       commands: 5,
       commandFailures: 1,
       tasksCompleted: 1,
+      tokens: 0,
+      cost: null,
     },
   ];
   stats.files.top = [{ projectId: 1, projectName: 'alpha', path: 'src/internal/payroll.ts', edits: 3, lastAction: 'modify', created: false }];

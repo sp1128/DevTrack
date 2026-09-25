@@ -67,6 +67,8 @@ export const DATA_TABLES = [
   'commands',
   'tasks',
   'git_commits',
+  'token_usage',
+  'transcript_offsets',
   'session_git_state',
   'sessions',
   'projects',

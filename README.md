@@ -33,6 +33,7 @@ devtrack today    # 今天干了什么
 - [查看项目](#查看项目)
 - [生成周报](#生成周报)
 - [AI 周报（可选）](#ai-周报可选)
+- [Token 用量与费用（可选）](#token-用量与费用可选)
 - [数据保存在哪里](#数据保存在哪里)
 - [隐私与安全](#隐私与安全)
 - [如何删除数据](#如何删除数据)
@@ -284,6 +285,33 @@ export DEVTRACK_AI_API_KEY=...
 
 也可以用 `devtrack config set ai.apiKeyEnv MY_KEY_VAR` 指定从哪个环境变量读取 Key；`DEVTRACK_AI_API_KEY` 对所有提供商都有效。AI 调用失败时周报仍会生成，并在末尾注明失败原因。
 
+## Token 用量与费用（可选）
+
+默认关闭。开启后，DevTrack 在每轮回复结束（`Stop`）和会话结束（`SessionEnd`）时，从 Claude Code 的会话记录文件（Hook 输入中的 `transcript_path`，以及同一会话的子代理记录）中增量读取每次模型请求的 token 用量，并按公开标价估算费用：
+
+```bash
+devtrack config set collect.tokenUsage true
+```
+
+之后 `today` / `week` / `month` / `project` / `stats` / `report` 都会显示 Token 用量与估算费用：
+
+```text
+Token 用量（估算费用）
+  模型             请求  输入   输出  缓存读取  缓存写入    费用
+  claude-opus-5-5   110   226  95.4K     61.6M    835.9K  $20.92
+```
+
+- **隐私**：只读取助手消息中的 `message.id`、`model`、`usage` 数字和时间戳；对话内容不会被读取到数据库。
+- **去重**：一次 API 响应在会话记录中可能拆成多行，按消息 ID 去重；只读取上次之后新增的内容。
+- **价格**：内置 Claude 各模型的公开标价（缓存写入 5 分钟按输入价 1.25 倍、1 小时按 2 倍；缓存读取按官方价格）。价格未知的模型只统计 token、不计入费用，可以自行补充或覆盖（美元 / 百万 token）：
+
+  ```bash
+  devtrack config set usage.prices '{"my-model": {"input": 3, "output": 15, "cacheRead": 0.3}}'
+  ```
+
+- 费用为按 API 标价的估算，仅供参考。使用 Pro / Max 订阅时不按 token 计费，可以把它当作"用量折合 API 价格"。
+- 只统计开启之后的会话回合；已经结束的会话不会补录。
+
 ## 数据保存在哪里
 
 所有数据只保存在本机：
@@ -299,14 +327,14 @@ export DEVTRACK_AI_API_KEY=...
 
 可以通过环境变量 `DEVTRACK_HOME` 指定其他目录。
 
-数据库表：`projects`、`sessions`、`events`、`file_changes`、`commands`、`git_commits`、`tasks`（以及内部使用的 `session_git_state`、`schema_migrations`）。可以用任意 SQLite 工具直接查询，所有时间均为 UTC ISO-8601 字符串。
+数据库表：`projects`、`sessions`、`events`、`file_changes`、`commands`、`git_commits`、`tasks`、`token_usage`（以及内部使用的 `session_git_state`、`transcript_offsets`、`meta`、`schema_migrations`）。可以用任意 SQLite 工具直接查询，所有时间均为 UTC ISO-8601 字符串。
 
 ## 隐私与安全
 
 默认 **不会** 保存：
 
 - 源代码（文件编辑只记录路径和动作；命令中的 heredoc 正文、`python -c` / `node -e` 等内联脚本会被省略）
-- 完整的 Claude 对话（提示词只记录长度；Claude 的回复不读取）
+- 完整的 Claude 对话（提示词只记录长度；Claude 的回复不读取；开启 Token 统计时也只读取用量数字）
 - API Key、密码、Cookie、Token、Authorization、SSH 私钥
 - 环境变量的值
 
@@ -384,6 +412,7 @@ DEVTRACK_DISABLE=1 claude
 | `collect.git` | `true` | 读取 Git 提交 |
 | `collect.tasks` | `true` | 记录 Claude 任务 |
 | `collect.promptSummary` | `false` | 保存每个会话首条提示词的前 80 个字符（脱敏后）作为会话标题 |
+| `collect.tokenUsage` | `false` | 从会话记录中读取 token 用量并估算费用（只读取数字，不读取对话内容） |
 | `privacy.redactPatterns` | `[]` | 自定义脱敏正则 |
 | `privacy.excludeProjects` | `[]` | 不记录的项目（名称或路径前缀） |
 | `commands.ignore` | `ls`、`cat`、`git status` 等 | 不写入命令表的琐碎命令（按命令前缀匹配） |
@@ -393,6 +422,7 @@ DEVTRACK_DISABLE=1 claude
 | `git.backfillDays` | `14` | 首次发现项目时回溯读取的天数 |
 | `git.trackWorkingTree` | `true` | 通过 `git status` 快照补充 Bash / 编辑器造成的文件变化 |
 | `retention.days` | `180` | 自动删除多少天之前的数据（每天最多检查一次）；`0` 表示永久保留 |
+| `usage.prices` | `{}` | 补充或覆盖模型价格（美元 / 百万 token），如 `{"my-model": {"input": 3, "output": 15}}` |
 | `activity.idleMinutes` | `30` | 空闲阈值：同一会话中相邻活动间隔超过该值的时间不计入开发时长 |
 | `ai.provider` | `anthropic` | `anthropic` / `openai` / `deepseek` / `openai-compatible` |
 | `ai.model` | 按提供商 | 模型名 |
@@ -457,6 +487,7 @@ devtrack today / week / month / project / report  ──>  读取数据库并统
 - **文件修改**：`Write`（新建 / 覆盖）、`Edit`、`MultiEdit`、`NotebookEdit` 工具；Bash 命令修改的文件来自 `tool_response.bashEditDiff`（Claude Code 在部分模式下提供）；其余变化（其他 Bash 命令、代码生成器、你在编辑器里的修改）在每轮回复结束（`Stop`）时通过 `git status` 快照对比补充，已记录过的文件不重复计算。
 - **命令**：`Bash` / `PowerShell` 工具。成功（`PostToolUse`）即退出码 0；失败（`PostToolUseFailure`）从错误信息首行 `Exit code N` 解析退出码；耗时取自 `duration_ms`。命令按类别归类（测试 / 构建 / 检查 / 依赖安装 / Git / 运行 / 其他）。
 - **Git 提交**：在会话开始、每轮回复结束（节流 20 秒）、会话结束以及执行统计命令时增量读取所有本地分支的提交（不含 merge 提交），默认只统计自己的提交；会话期间产生的提交会关联到对应会话。
+- **Token 用量**（可选）：`Stop` / `SessionEnd` 时从 `transcript_path` 指向的会话记录（JSONL）中增量读取助手消息的 `usage`，按消息 ID 去重，记录读取位置避免重复解析。
 - **任务**：`TaskCreated` / `TaskCompleted` 事件与 `TaskCreate` / `TaskUpdate` / `TodoWrite` 工具。新版模型默认不启用任务工具，此时周报根据 Git 提交推断完成的工作。
 
 ## 命令参考

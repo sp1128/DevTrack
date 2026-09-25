@@ -8,6 +8,8 @@ export const PURGE_RULES: { table: string; label: string; where: string }[] = [
   { table: 'commands', label: '命令', where: 'timestamp < ?' },
   { table: 'tasks', label: '任务', where: 'COALESCE(completed_at, updated_at) < ?' },
   { table: 'git_commits', label: 'Git 提交', where: 'timestamp < ?' },
+  { table: 'token_usage', label: 'Token 用量', where: 'timestamp < ?' },
+  { table: 'transcript_offsets', label: '会话记录读取进度', where: 'updated_at < ?' },
   { table: 'sessions', label: '会话', where: "COALESCE(ended_at, last_activity_at) < ? AND status != 'active'" },
 ];
 
