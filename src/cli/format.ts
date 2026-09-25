@@ -1,6 +1,6 @@
 /** 终端输出工具：颜色（遵循 NO_COLOR / FORCE_COLOR）、中文宽度感知的对齐与表格。 */
 
-function colorEnabled(): boolean {
+export function colorEnabled(): boolean {
   if (process.env.NO_COLOR) return false;
   if (process.env.FORCE_COLOR && process.env.FORCE_COLOR !== '0') return true;
   return Boolean(process.stdout.isTTY);
@@ -21,6 +21,11 @@ export const c = {
   cyan: wrap(36, 39),
   gray: wrap(90, 39),
 };
+
+/** 256 色前景色（终端不支持颜色时原样返回文本）。 */
+export function color256(code: number, text: string): string {
+  return colorEnabled() ? `\u001b[38;5;${code}m${text}\u001b[39m` : text;
+}
 
 // eslint-disable-next-line no-control-regex
 const ANSI = /\u001b\[[0-9;]*m/g;

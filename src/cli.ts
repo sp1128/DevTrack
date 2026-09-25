@@ -157,6 +157,39 @@ async function main(): Promise<void> {
     );
 
   program
+    .command('heatmap')
+    .description('终端热力图：类似 GitHub 贡献图，显示最近一年每天的开发活跃度')
+    .option('--weeks <n>', '显示最近多少周（默认按终端宽度，最多 53 周）')
+    .option('--metric <metric>', '按什么统计：time（开发时长，默认）/ commits（提交）/ sessions（会话）')
+    .option('--json', '以 JSON 输出每日数据')
+    .addOption(noSync())
+    .action(
+      action(async (opts) => {
+        const { runHeatmap } = await import('./cli/commands/heatmap.js');
+        await runHeatmap(opts);
+      }),
+    );
+
+  program
+    .command('export')
+    .description('导出数据为 CSV 或 JSON，方便导入 Excel 或其他工具')
+    .option('--format <format>', 'csv 或 json', 'csv')
+    .option(
+      '--type <type>',
+      '导出的数据：sessions / daily / projects / commits / files / commands / tasks / tokens（JSON 不指定时导出全部）',
+    )
+    .option('--since <range>', '起始时间，例如 30d、12w、2026-01-01（默认全部记录）')
+    .option('--until <date>', '截止日期（不含），例如 2026-10-01（默认现在）')
+    .option('-o, --output <file>', '输出文件（默认输出到终端）')
+    .addOption(noSync())
+    .action(
+      action(async (opts) => {
+        const { runExport } = await import('./cli/commands/export.js');
+        await runExport(opts);
+      }),
+    );
+
+  program
     .command('summarize')
     .description('用 AI 为已结束的会话生成一句话摘要（只发送会话的统计数据，不发送对话内容与源代码）')
     .option('--since <range>', '只处理该时间之后开始的会话，例如 7d、4w、2026-09-01', '7d')
