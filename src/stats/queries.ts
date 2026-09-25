@@ -1,6 +1,6 @@
 import type { DB } from '../db/database.js';
 import { eachDay, formatDate, type DateRange } from '../core/time.js';
-import { buildIntervals, clipIntervals, summarizeIntervals, type ActivityPoint } from './activity.js';
+import { buildIntervals, clipIntervals, summarizeIntervals, type ActivityPoint, type Interval } from './activity.js';
 
 export interface SessionSummary {
   id: number;
@@ -140,18 +140,18 @@ export function collectPeriodStats(db: DB, range: DateRange, options: StatsOptio
   // ---- 活跃时长 ----
   const padStart = new Date(range.start.getTime() - idleMs).toISOString();
   const padEnd = new Date(range.end.getTime() + idleMs).toISOString();
-  const pointRows = db
+  // 流式读取原始行（数组而非对象），直接构造活跃点，减少大数据量时的内存分配与 GC
+  const points: ActivityPoint[] = [];
+  const pointStmt = db
     .prepare(
       `SELECT session_id, project_id, timestamp FROM events
         WHERE session_id IS NOT NULL AND timestamp >= ? AND timestamp < ?${projectFilter('project_id')}
         ORDER BY session_id, timestamp`,
     )
-    .all(padStart, padEnd) as { session_id: number; project_id: number | null; timestamp: string }[];
-  const points: ActivityPoint[] = pointRows.map((r) => ({
-    sessionId: r.session_id,
-    projectId: r.project_id,
-    t: Date.parse(r.timestamp),
-  }));
+    .raw(true);
+  for (const row of pointStmt.iterate(padStart, padEnd) as Iterable<[number, number | null, string]>) {
+    points.push({ sessionId: row[0], projectId: row[1], t: Date.parse(row[2]) });
+  }
   const allIntervals = buildIntervals(points, idleMs);
   const intervals = clipIntervals(allIntervals, range.start.getTime(), range.end.getTime());
   const activity = summarizeIntervals(intervals);
@@ -428,11 +428,23 @@ export function collectPeriodStats(db: DB, range: DateRange, options: StatsOptio
     const i = dayIndex(p.t);
     if (i >= 0) daySessions[i]!.add(p.sessionId);
   }
+  // 一次遍历把每个活跃区间按天切分到各自的桶里（区间通常只跨一天），
+  // 避免"每一天都扫描全部区间"带来的 O(天数 × 区间数) 开销
+  const dayEndOf = (i: number) => (i + 1 < days.length ? dayStarts[i + 1]! : range.end.getTime());
+  const dayBuckets: Interval[][] = days.map(() => []);
+  for (const iv of intervals) {
+    let i = dayIndex(iv.start);
+    while (i >= 0 && i < days.length && dayStarts[i]! < iv.end) {
+      const s = Math.max(iv.start, dayStarts[i]!);
+      const e = Math.min(iv.end, dayEndOf(i));
+      if (e > s) dayBuckets[i]!.push({ ...iv, start: s, end: e });
+      i++;
+    }
+  }
   const daily: DailySummary[] = days.map((d, i) => {
-    const dayEnd = i + 1 < days.length ? dayStarts[i + 1]! : range.end.getTime();
     return {
       date: formatDate(d),
-      activeSeconds: summarizeIntervals(clipIntervals(intervals, dayStarts[i]!, dayEnd)).totalSeconds,
+      activeSeconds: summarizeIntervals(dayBuckets[i]!).totalSeconds,
       sessions: daySessions[i]!.size,
       commits: 0,
       fileEdits: 0,

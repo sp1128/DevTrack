@@ -240,7 +240,7 @@ function checkConfig(configFile: string): Check {
     return {
       name: 'Configuration',
       status: 'ok',
-      message: `${tildify(configFile)}${disabled.length ? `（已关闭：${disabled.join(', ')}）` : ''}`,
+      message: `${tildify(configFile)}（数据保留：${config.retention.days > 0 ? `${config.retention.days} 天` : '永久'}${disabled.length ? `；已关闭：${disabled.join(', ')}` : ''}）`,
     };
   } catch (err) {
     return {

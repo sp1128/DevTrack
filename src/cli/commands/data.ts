@@ -1,21 +1,11 @@
 import fs from 'node:fs';
 import { formatDateTime, parseCutoff } from '../../core/time.js';
 import { openDatabase } from '../../db/database.js';
-import { closeStaleSessions } from '../../db/repo.js';
+import { countPurge, purgeBefore } from '../../db/purge.js';
 import { inspectHooks, SettingsError, uninstallHooks } from '../../hooks/install.js';
 import { getClaudeSettingsPath, getPaths, tildify } from '../../paths.js';
 import { CliError, confirm, loadConfigOrThrow } from '../context.js';
 import { c, table } from '../format.js';
-
-/** purge 的删除条件：各表中早于截止时间的记录。 */
-const PURGE_RULES: { table: string; label: string; where: string }[] = [
-  { table: 'events', label: '事件', where: 'timestamp < ?' },
-  { table: 'file_changes', label: '文件修改', where: 'timestamp < ?' },
-  { table: 'commands', label: '命令', where: 'timestamp < ?' },
-  { table: 'tasks', label: '任务', where: 'COALESCE(completed_at, updated_at) < ?' },
-  { table: 'git_commits', label: 'Git 提交', where: 'timestamp < ?' },
-  { table: 'sessions', label: '会话', where: "COALESCE(ended_at, last_activity_at) < ? AND status != 'active'" },
-];
 
 export async function runPurge(options: { before: string; yes?: boolean; dryRun?: boolean }): Promise<void> {
   loadConfigOrThrow();
@@ -29,12 +19,7 @@ export async function runPurge(options: { before: string; yes?: boolean; dryRun?
   }
   const db = openDatabase(paths.dbFile);
   try {
-    closeStaleSessions(db, now);
-    const cutoffIso = cutoff.toISOString();
-    const counts = PURGE_RULES.map((rule) => ({
-      ...rule,
-      count: (db.prepare(`SELECT COUNT(*) AS c FROM ${rule.table} WHERE ${rule.where}`).get(cutoffIso) as { c: number }).c,
-    }));
+    const counts = countPurge(db, cutoff, now);
     const total = counts.reduce((n, r) => n + r.count, 0);
     console.log(`将删除 ${c.bold(formatDateTime(cutoff))} 之前的数据：`);
     console.log(table(['类型', '条数'], counts.map((r) => [r.label, String(r.count)]), { alignRight: [1] }));
@@ -50,9 +35,7 @@ export async function runPurge(options: { before: string; yes?: boolean; dryRun?
       console.log('已取消。');
       return;
     }
-    db.transaction(() => {
-      for (const rule of PURGE_RULES) db.prepare(`DELETE FROM ${rule.table} WHERE ${rule.where}`).run(cutoffIso);
-    })();
+    purgeBefore(db, cutoff, now);
     // 回收空间并确保已删除的数据不再残留在数据库文件中
     db.pragma('wal_checkpoint(TRUNCATE)');
     db.exec('VACUUM');
