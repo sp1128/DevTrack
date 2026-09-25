@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { HOOK_EVENTS, type HookEventName } from './schema.js';
+import { HOOK_EVENTS, type HookEventName } from './input.js';
 
 /** 标记参数：用于识别 DevTrack 自己安装的 Hook，卸载 / 重装时不会误删用户的其他 Hook。 */
 export const HOOK_MARKER = '--devtrack-managed';

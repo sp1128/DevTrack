@@ -5,7 +5,7 @@ import path from 'node:path';
 import { defaultConfig, type DevTrackConfig } from '../src/config.js';
 import { openDatabase, type DB } from '../src/db/database.js';
 import { handleHookEvent } from '../src/hooks/handler.js';
-import { HookInputSchema } from '../src/hooks/schema.js';
+import { parseHookInput } from '../src/hooks/input.js';
 
 export function makeTempDir(prefix = 'devtrack-test-'): string {
   // realpathSync.native：展开 Windows 的 8.3 短文件名（RUNNER~1）与 macOS 的 /var -> /private/var，
@@ -82,7 +82,9 @@ export function testConfig(patch: (c: DevTrackConfig) => void = () => {}): DevTr
 
 /** 以指定时间处理一条 Hook 事件（输入先经过与生产环境相同的 schema 解析）。 */
 export function send(db: DB, config: DevTrackConfig, payload: Record<string, unknown>, at: Date | string = new Date()) {
-  const input = HookInputSchema.parse(payload);
+  const parsed = parseHookInput(payload);
+  if (!parsed.success) throw new Error(parsed.error);
+  const input = parsed.data;
   return handleHookEvent({ db, config, now: typeof at === 'string' ? new Date(at) : at }, input);
 }
 

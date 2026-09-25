@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * Claude Code Hook 的 stdin 输入（依据官方文档 https://code.claude.com/docs/en/hooks）。
+ * Claude Code Hook 的 stdin 输入的 zod 版本（编程接口与测试使用；Hook 本身使用 input.ts 中的手写校验）。
  *
  * 只声明 DevTrack 需要的字段；每个可选字段都用 .catch(undefined) 容错，
  * 这样 Claude Code 未来调整某个字段的类型时，Hook 只会忽略该字段而不会整体失败。
@@ -46,18 +46,6 @@ export const HookInputSchema = z.object({
   task_description: optStr,
 });
 
-export type HookInput = z.infer<typeof HookInputSchema>;
-
-/** DevTrack 注册的 Hook 事件。 */
-export const HOOK_EVENTS = [
-  'SessionStart',
-  'UserPromptSubmit',
-  'PostToolUse',
-  'PostToolUseFailure',
-  'Stop',
-  'TaskCreated',
-  'TaskCompleted',
-  'SessionEnd',
-] as const;
-
-export type HookEventName = (typeof HOOK_EVENTS)[number];
+/** 与 zod 推断出的类型一致；Hook 路径使用 input.ts 中不依赖 zod 的实现。 */
+export type { HookInput, HookEventName } from './input.js';
+export { HOOK_EVENTS, parseHookInput } from './input.js';

@@ -28,7 +28,7 @@ import {
 } from '../db/repo.js';
 import { logError } from '../logger.js';
 import { getClaudeConfigDir, normalizePath } from '../paths.js';
-import type { HookInput } from './schema.js';
+import type { HookInput } from './input.js';
 
 export interface HookContext {
   db: DB;
