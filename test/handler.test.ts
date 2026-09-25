@@ -3,6 +3,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { DevTrackConfig } from '../src/config.js';
 import type { DB } from '../src/db/database.js';
+import { normalizePath } from '../src/paths.js';
 import { commitFile, createRepo, git, makeTempDir, memoryDb, rmrf, rows, send, testConfig } from './helpers.js';
 
 describe('Hook 事件处理', () => {
@@ -37,12 +38,12 @@ describe('Hook 事件处理', () => {
     expect(result.status).toBe('recorded');
     const [project] = rows<{ name: string; path: string; git_remote: string; is_git: number }>(db, 'SELECT * FROM projects');
     expect(project!.name).toBe('project-a');
-    expect(project!.path).toBe(repo);
+    expect(project!.path).toBe(normalizePath(repo));
     expect(project!.is_git).toBe(1);
     // remote 中的凭据被移除
     expect(project!.git_remote).toBe('https://github.com/me/project-a.git');
     const [session] = rows<{ cwd: string; git_branch: string; status: string; model: string }>(db, 'SELECT * FROM sessions');
-    expect(session).toMatchObject({ cwd: sub, git_branch: 'main', status: 'active', model: 'claude-opus-5' });
+    expect(session).toMatchObject({ cwd: normalizePath(sub), git_branch: 'main', status: 'active', model: 'claude-opus-5' });
   });
 
   it('非 git 目录也能识别为项目', () => {

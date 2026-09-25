@@ -8,7 +8,9 @@ import { handleHookEvent } from '../src/hooks/handler.js';
 import { HookInputSchema } from '../src/hooks/schema.js';
 
 export function makeTempDir(prefix = 'devtrack-test-'): string {
-  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
+  // realpathSync.native：展开 Windows 的 8.3 短文件名（RUNNER~1）与 macOS 的 /var -> /private/var，
+  // 与 git rev-parse 返回的路径保持一致
+  return fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
 }
 
 export function rmrf(dir: string): void {
