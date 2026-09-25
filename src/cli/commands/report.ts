@@ -28,7 +28,11 @@ export async function runReport(options: ReportCommandOptions): Promise<void> {
     } else {
       range = weekRange(now, options.last ? -1 : 0);
     }
-    const stats = collectPeriodStats(db, range, { idleMinutes: config.activity.idleMinutes, topFiles: 15 });
+    const stats = collectPeriodStats(db, range, {
+      idleMinutes: config.activity.idleMinutes,
+      prices: config.usage.prices,
+      topFiles: 15,
+    });
 
     if (options.ai && options.dryRun) {
       console.error(c.gray(`以下数据将发送给 ${config.ai.provider}（模型 ${safeModel(config)}），未实际发送：`));

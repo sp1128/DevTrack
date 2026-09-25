@@ -6,6 +6,7 @@ import { tableCounts } from '../../db/database.js';
 import { tildify } from '../../paths.js';
 import { collectPeriodStats, earliestRecord } from '../../stats/queries.js';
 import { printJson, withCli } from '../context.js';
+import { renderTokens, tokenRow } from '../render.js';
 import { bar, c, heading, keyValues, table } from '../format.js';
 
 export async function runStats(options: { json?: boolean; sync?: boolean }): Promise<void> {
@@ -16,7 +17,11 @@ export async function runStats(options: { json?: boolean; sync?: boolean }): Pro
       end: new Date(now.getTime() + 60_000),
       label: '全部记录',
     };
-    const stats = collectPeriodStats(db, range, { idleMinutes: config.activity.idleMinutes, topFiles: 10 });
+    const stats = collectPeriodStats(db, range, {
+      idleMinutes: config.activity.idleMinutes,
+      prices: config.usage.prices,
+      topFiles: 10,
+    });
     const counts = tableCounts(db);
     const dbSize = ['', '-wal'].reduce((n, suffix) => {
       try {
@@ -49,6 +54,7 @@ export async function runStats(options: { json?: boolean; sync?: boolean }): Pro
         ['执行命令', `${formatNumber(stats.commands.total)} 次（失败 ${formatNumber(stats.commands.failed)}）`],
         ['完成任务', `${formatNumber(stats.tasks.completed.length)} 个`],
         ['工具调用', `${formatNumber(stats.tools.reduce((n, t) => n + t.count, 0))} 次`],
+        ...tokenRow(stats),
       ]),
     );
 
@@ -91,6 +97,7 @@ export async function runStats(options: { json?: boolean; sync?: boolean }): Pro
         ),
       );
     }
+    for (const line of renderTokens(stats)) console.log(line);
     console.log(heading('数据表'));
     console.log(
       c.gray(

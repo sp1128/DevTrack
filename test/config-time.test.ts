@@ -29,7 +29,7 @@ describe('config', () => {
   it('默认配置：全部采集开启，提示词摘要默认关闭', () => {
     const c = defaultConfig();
     expect(c.enabled).toBe(true);
-    expect(c.collect).toEqual({ commands: true, fileChanges: true, git: true, tasks: true, promptSummary: false });
+    expect(c.collect).toEqual({ commands: true, fileChanges: true, git: true, tasks: true, promptSummary: false, tokenUsage: false });
     expect(c.activity.idleMinutes).toBe(30);
     expect(c.ai.provider).toBe('anthropic');
   });

@@ -4,6 +4,7 @@ import { classifyCommand, isIgnoredCommand, parseExitCode, sanitizeCommand } fro
 import { diffWorkingTree, snapshotBaseline, syncProjectCommits } from '../core/gitSync.js';
 import { detectProject, isProjectExcluded, relativizePath } from '../core/project.js';
 import { sanitizeText, summarizePrompt } from '../core/text.js';
+import { ingestTranscript } from '../core/transcript.js';
 import type { DB } from '../db/database.js';
 import { autoPurge } from '../db/purge.js';
 import {
@@ -191,6 +192,13 @@ export function handleHookEvent(ctx: HookContext, input: HookInput): HandleResul
   }
 
   if (event === 'SessionStart' || event === 'Stop' || event === 'SessionEnd') touchProject(db, project.id, ts);
+  if ((event === 'Stop' || event === 'SessionEnd') && config.collect.tokenUsage && input.transcript_path?.endsWith('.jsonl')) {
+    try {
+      ingestTranscript(db, input.transcript_path, base, now);
+    } catch (err) {
+      logError('token-usage', err);
+    }
+  }
   runGitWork(ctx, session, project, ts, git);
   return { status: 'recorded', ...base };
 }

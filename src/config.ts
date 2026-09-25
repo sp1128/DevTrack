@@ -67,6 +67,8 @@ export const ConfigSchema = z.object({
       tasks: z.boolean().default(true),
       /** 保存每个会话首条提示词的前 80 个字符（脱敏后）作为会话标题。默认关闭。 */
       promptSummary: z.boolean().default(false),
+      /** 从 Claude Code 会话记录中读取 token 用量（只读取数字，不读取对话内容）并估算费用。默认关闭。 */
+      tokenUsage: z.boolean().default(false),
     })
     .prefault({}),
   privacy: z
@@ -99,6 +101,17 @@ export const ConfigSchema = z.object({
     .object({
       /** 自动删除多少天之前的数据（每天最多检查一次）；0 表示永久保留。 */
       days: z.number().int().min(0).max(3650).default(180),
+    })
+    .prefault({}),
+  usage: z
+    .object({
+      /** 补充或覆盖模型价格（美元 / 百万 token），例如 {"my-model": {"input": 3, "output": 15}}。 */
+      prices: z
+        .record(
+          z.string().min(1),
+          z.object({ input: z.number().min(0), output: z.number().min(0), cacheRead: z.number().min(0).optional() }),
+        )
+        .default({}),
     })
     .prefault({}),
   activity: z

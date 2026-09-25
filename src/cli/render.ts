@@ -1,5 +1,5 @@
 import { CATEGORY_LABELS, type CommandCategory } from '../core/commands.js';
-import { formatDuration, formatNumber, percent, shortHash } from '../core/format.js';
+import { formatCost, formatDuration, formatNumber, formatTokens, percent, shortHash } from '../core/format.js';
 import { formatDate, formatDateTime, formatTime, weekdayLabel } from '../core/time.js';
 import type { PeriodStats, SessionSummary } from '../stats/queries.js';
 import { bar, c, heading, keyValues, table, truncate } from './format.js';
@@ -17,6 +17,40 @@ function categoryLabel(category: string): string {
 function commitsText(stats: PeriodStats): string {
   const t = stats.commitTotals;
   return `${t.count} 次${t.count > 0 ? c.gray(`（+${formatNumber(t.insertions)} / -${formatNumber(t.deletions)} 行）`) : ''}`;
+}
+
+/** 概况中的 "Token / 费用" 一行；没有用量记录时省略。 */
+export function tokenRow(stats: PeriodStats): [string, string][] {
+  const t = stats.tokens;
+  if (!t) return [];
+  const cost = t.cost === null ? c.gray('（价格未知）') : ` · 约 ${c.bold(formatCost(t.cost))}`;
+  return [['Token / 费用', `${formatTokens(t.total)}${cost}`]];
+}
+
+export function renderTokens(stats: PeriodStats): string[] {
+  const t = stats.tokens;
+  if (!t) return [];
+  const out = [heading('Token 用量（估算费用）')];
+  out.push(
+    table(
+      ['模型', '请求', '输入', '输出', '缓存读取', '缓存写入', '费用'],
+      t.byModel.map((m) => [
+        m.model,
+        formatNumber(m.messages),
+        formatTokens(m.input),
+        formatTokens(m.output),
+        formatTokens(m.cacheRead),
+        formatTokens(m.cacheWrite),
+        m.cost === null ? c.gray('未知') : formatCost(m.cost),
+      ]),
+      { alignRight: [1, 2, 3, 4, 5, 6], maxWidths: [32] },
+    ),
+  );
+  if (t.unpricedTokens > 0) {
+    out.push(c.gray(`  ${formatTokens(t.unpricedTokens)} token 的模型价格未知，未计入费用；可通过配置 usage.prices 补充。`));
+  }
+  out.push(c.gray('  费用按 Anthropic 公开标价估算，仅供参考；订阅套餐（Pro / Max）不按 token 计费。'));
+  return out;
 }
 
 function isEmpty(stats: PeriodStats): boolean {
@@ -155,6 +189,7 @@ export function renderToday(stats: PeriodStats, title = '今天'): string {
       ['Git 提交', commitsText(stats)],
       ['完成任务', `${stats.tasks.completed.length} 个`],
       ['执行命令', `${stats.commands.total} 次${stats.commands.failed > 0 ? c.red(`（失败 ${stats.commands.failed}）`) : ''}`],
+      ...tokenRow(stats),
     ]),
   );
   out.push(...renderProjects(stats, false));
@@ -163,6 +198,7 @@ export function renderToday(stats: PeriodStats, title = '今天'): string {
   out.push(...renderFiles(stats, 10));
   out.push(...renderTasks(stats, 20));
   out.push(...renderCommandSummary(stats));
+  out.push(...renderTokens(stats));
   return out.join('\n') + '\n';
 }
 
@@ -215,6 +251,7 @@ export function renderPeriodSummary(
       ['文件修改', `${stats.files.distinct} 个${c.gray(`（${stats.files.edits} 次修改）`)}`],
       ['完成任务', `${stats.tasks.completed.length} 个`],
       ['执行命令', `${stats.commands.total} 次${stats.commands.failed > 0 ? c.red(`（失败 ${stats.commands.failed}）`) : ''}`],
+      ...tokenRow(stats),
     ]),
   );
   out.push(...renderDaily(stats, onlyActiveDays));
@@ -223,5 +260,6 @@ export function renderPeriodSummary(
   out.push(...renderCommits(stats, 8, true));
   out.push(...renderFiles(stats, 8));
   out.push(...renderCommandSummary(stats));
+  out.push(...renderTokens(stats));
   return out.join('\n') + '\n';
 }

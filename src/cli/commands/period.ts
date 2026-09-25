@@ -28,7 +28,7 @@ export async function runToday(options: PeriodOptions): Promise<void> {
     } else {
       range = todayRange(now);
     }
-    const stats = collectPeriodStats(db, range, { idleMinutes: config.activity.idleMinutes });
+    const stats = collectPeriodStats(db, range, { idleMinutes: config.activity.idleMinutes, prices: config.usage.prices });
     if (options.json) printJson(stats);
     else process.stdout.write(renderToday(stats, title));
   });
@@ -44,7 +44,7 @@ export async function runWeek(options: PeriodOptions): Promise<void> {
     } else {
       range = weekRange(now, options.last ? -1 : 0);
     }
-    const stats = collectPeriodStats(db, range, { idleMinutes: config.activity.idleMinutes });
+    const stats = collectPeriodStats(db, range, { idleMinutes: config.activity.idleMinutes, prices: config.usage.prices });
     if (options.json) printJson(stats);
     else process.stdout.write(renderPeriodSummary(stats, options.last ? '上周' : options.week ? '周' : '本周', false));
   });
@@ -60,7 +60,11 @@ export async function runMonth(options: PeriodOptions): Promise<void> {
     } else {
       range = monthRange(now, options.last ? -1 : 0);
     }
-    const stats = collectPeriodStats(db, range, { idleMinutes: config.activity.idleMinutes, topFiles: 15 });
+    const stats = collectPeriodStats(db, range, {
+      idleMinutes: config.activity.idleMinutes,
+      prices: config.usage.prices,
+      topFiles: 15,
+    });
     if (options.json) printJson(stats);
     else process.stdout.write(renderPeriodSummary(stats, options.last ? '上月' : options.month ? '月' : '本月', true));
   });

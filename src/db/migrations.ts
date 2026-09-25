@@ -124,6 +124,32 @@ CREATE TABLE IF NOT EXISTS meta (
 );
 `,
   },
+  {
+    version: 3,
+    sql: `
+CREATE TABLE token_usage (
+  id                    INTEGER PRIMARY KEY,
+  session_id            INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
+  project_id            INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+  message_id            TEXT NOT NULL UNIQUE,
+  model                 TEXT,
+  timestamp             TEXT NOT NULL,
+  input_tokens          INTEGER NOT NULL DEFAULT 0,
+  output_tokens         INTEGER NOT NULL DEFAULT 0,
+  cache_read_tokens     INTEGER NOT NULL DEFAULT 0,
+  cache_write_5m_tokens INTEGER NOT NULL DEFAULT 0,
+  cache_write_1h_tokens INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX idx_token_usage_ts ON token_usage(timestamp);
+CREATE INDEX idx_token_usage_session ON token_usage(session_id);
+
+CREATE TABLE transcript_offsets (
+  file       TEXT PRIMARY KEY,
+  offset     INTEGER NOT NULL,
+  updated_at TEXT NOT NULL
+);
+`,
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

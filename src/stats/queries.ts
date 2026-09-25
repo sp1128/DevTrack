@@ -1,3 +1,4 @@
+import { estimateCost, type ModelPrice } from '../core/pricing.js';
 import type { DB } from '../db/database.js';
 import { eachDay, formatDate, type DateRange } from '../core/time.js';
 import { buildIntervals, clipIntervals, summarizeIntervals, type ActivityPoint, type Interval } from './activity.js';
@@ -31,6 +32,10 @@ export interface ProjectSummary {
   commands: number;
   commandFailures: number;
   tasksCompleted: number;
+  /** Token 总量（输入 + 输出 + 缓存读写） */
+  tokens: number;
+  /** 估算费用（美元）；没有可计价的用量时为 null */
+  cost: number | null;
 }
 
 export interface FileSummary {
@@ -81,6 +86,26 @@ export interface DailySummary {
   commits: number;
   fileEdits: number;
   commands: number;
+  tokens: number;
+  cost: number | null;
+}
+
+export interface TokenBreakdown {
+  messages: number;
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  /** 以上四项之和 */
+  total: number;
+  /** 估算费用（美元）：只包含价格已知的模型；全部未知时为 null */
+  cost: number | null;
+}
+
+export interface TokenStats extends TokenBreakdown {
+  /** 价格未知、没有计入费用的 token 数 */
+  unpricedTokens: number;
+  byModel: (TokenBreakdown & { model: string })[];
 }
 
 export interface PeriodStats {
@@ -109,6 +134,8 @@ export interface PeriodStats {
   };
   tasks: { created: number; open: number; completed: TaskSummary[] };
   daily: DailySummary[];
+  /** Token 用量与估算费用（需开启 collect.tokenUsage）；没有记录时为 null */
+  tokens: TokenStats | null;
 }
 
 export interface StatsOptions {
@@ -117,6 +144,8 @@ export interface StatsOptions {
   projectId?: number;
   /** 文件 Top N */
   topFiles?: number;
+  /** 补充或覆盖的模型价格（配置 usage.prices） */
+  prices?: Record<string, ModelPrice>;
 }
 
 interface ProjectRef {
@@ -363,6 +392,8 @@ export function collectPeriodStats(db: DB, range: DateRange, options: StatsOptio
         commands: 0,
         commandFailures: 0,
         tasksCompleted: 0,
+        tokens: 0,
+        cost: null,
       };
       projectMap.set(id, p);
     }
@@ -404,6 +435,46 @@ export function collectPeriodStats(db: DB, range: DateRange, options: StatsOptio
     const p = ensure(row.project_id);
     if (p) p.tasksCompleted = row.c;
   }
+
+  // ---- Token 用量 ----
+  const usageRows = db
+    .prepare(
+      `SELECT project_id, model, timestamp, input_tokens, output_tokens, cache_read_tokens,
+              cache_write_5m_tokens, cache_write_1h_tokens
+         FROM token_usage WHERE timestamp >= ? AND timestamp < ?${projectFilter('project_id')}`,
+    )
+    .raw(true)
+    .all(start, end) as [number | null, string | null, string, number, number, number, number, number][];
+  const emptyBreakdown = (): TokenBreakdown => ({ messages: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0, cost: null });
+  const tokenTotals: TokenStats = { ...emptyBreakdown(), unpricedTokens: 0, byModel: [] };
+  const byModel = new Map<string, TokenBreakdown & { model: string }>();
+  const usageByDay: { ts: string; tokens: number; cost: number | null }[] = [];
+  const addCost = (cur: number | null, add: number | null) => (add === null ? cur : (cur ?? 0) + add);
+  for (const [projectId, model, ts, input, output, cacheRead, write5m, write1h] of usageRows) {
+    const cacheWrite = write5m + write1h;
+    const total = input + output + cacheRead + cacheWrite;
+    const cost = estimateCost(model, { input, output, cacheRead, cacheWrite5m: write5m, cacheWrite1h: write1h }, options.prices);
+    const name = model ?? '(未知模型)';
+    let m = byModel.get(name);
+    if (!m) byModel.set(name, (m = { model: name, ...emptyBreakdown() }));
+    for (const b of [tokenTotals, m]) {
+      b.messages++;
+      b.input += input;
+      b.output += output;
+      b.cacheRead += cacheRead;
+      b.cacheWrite += cacheWrite;
+      b.total += total;
+      b.cost = addCost(b.cost, cost);
+    }
+    if (cost === null) tokenTotals.unpricedTokens += total;
+    const p = ensure(projectId);
+    if (p) {
+      p.tokens += total;
+      p.cost = addCost(p.cost, cost);
+    }
+    usageByDay.push({ ts, tokens: total, cost });
+  }
+  tokenTotals.byModel = [...byModel.values()].sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0) || b.total - a.total);
   const projects = [...projectMap.values()].sort(
     (a, b) => b.activeSeconds - a.activeSeconds || b.commits - a.commits || b.fileEdits - a.fileEdits,
   );
@@ -449,6 +520,8 @@ export function collectPeriodStats(db: DB, range: DateRange, options: StatsOptio
       commits: 0,
       fileEdits: 0,
       commands: 0,
+      tokens: 0,
+      cost: null,
     };
   });
   const bump = (ts: string, field: 'commits' | 'fileEdits' | 'commands') => {
@@ -458,6 +531,12 @@ export function collectPeriodStats(db: DB, range: DateRange, options: StatsOptio
   for (const c of commits) bump(c.timestamp, 'commits');
   for (const f of fileRows) bump(f.timestamp, 'fileEdits');
   for (const c of commandRows) bump(c.timestamp, 'commands');
+  for (const u of usageByDay) {
+    const i = dayIndex(Date.parse(u.ts));
+    if (i < 0) continue;
+    daily[i]!.tokens += u.tokens;
+    daily[i]!.cost = addCost(daily[i]!.cost, u.cost);
+  }
 
   return {
     range: { start, end, label: range.label },
@@ -494,6 +573,7 @@ export function collectPeriodStats(db: DB, range: DateRange, options: StatsOptio
       completed: completedTasks,
     },
     daily,
+    tokens: usageRows.length > 0 ? tokenTotals : null,
   };
 }
 

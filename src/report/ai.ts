@@ -83,6 +83,14 @@ export function buildAiPayload(stats: PeriodStats, config: DevTrackConfig): Reco
       .map((f) => ({ category: f.category, project: f.projectName, count: f.count })),
     toolUsage: stats.tools.slice(0, 15),
   };
+  if (stats.tokens) {
+    payload.tokenUsage = {
+      totalTokens: stats.tokens.total,
+      outputTokens: stats.tokens.output,
+      estimatedCostUSD: stats.tokens.cost === null ? null : Math.round(stats.tokens.cost * 100) / 100,
+      byModel: stats.tokens.byModel.map((m) => ({ model: m.model, totalTokens: m.total })),
+    };
+  }
   const titles = stats.sessions.map((s) => s.title).filter((t): t is string => !!t);
   if (titles.length > 0) payload.sessionTitles = titles.slice(0, 30);
   if (config.ai.includeFilePaths) {

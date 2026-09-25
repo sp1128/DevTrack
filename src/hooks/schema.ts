@@ -15,6 +15,7 @@ export const HookInputSchema = z.object({
   session_id: z.string().min(1),
   hook_event_name: z.string().min(1),
   cwd: optStr,
+  transcript_path: optStr,
   scratchpad_dir: optStr,
   permission_mode: optStr,
   agent_id: optStr,
