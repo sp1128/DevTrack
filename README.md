@@ -360,6 +360,9 @@ devtrack config set enabled false               # 暂停全部采集
 # 排除某些项目（项目名或路径前缀）
 devtrack config set privacy.excludeProjects '["secret-project", "~/work/confidential"]'
 
+# 公司、个人等多个邮箱的提交都算作自己的
+devtrack config set git.authorEmails '["me@company.com", "me@gmail.com"]'
+
 # 只忽略更多琐碎命令（这些命令仍计入工具调用次数，但不写入命令表）
 devtrack config set commands.ignore '["ls","pwd","cat","git status","kubectl get"]'
 
@@ -386,6 +389,7 @@ DEVTRACK_DISABLE=1 claude
 | `commands.ignore` | `ls`、`cat`、`git status` 等 | 不写入命令表的琐碎命令（按命令前缀匹配） |
 | `commands.maxLength` | `300` | 命令最大保存长度 |
 | `git.authorOnly` | `true` | 只统计 `git config user.email` 对应作者的提交 |
+| `git.authorEmails` | `[]` | 额外算作"自己"的提交邮箱（公司 / 个人 / 旧邮箱），与仓库的 `user.email` 一起匹配，不区分大小写；修改后会自动按 `git.backfillDays` 重新扫描 |
 | `git.backfillDays` | `14` | 首次发现项目时回溯读取的天数 |
 | `git.trackWorkingTree` | `true` | 通过 `git status` 快照补充 Bash / 编辑器造成的文件变化 |
 | `retention.days` | `180` | 自动删除多少天之前的数据（每天最多检查一次）；`0` 表示永久保留 |

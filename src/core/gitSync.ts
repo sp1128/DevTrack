@@ -12,6 +12,7 @@ import {
   type ProjectRow,
   type SessionRow,
 } from '../db/repo.js';
+import { getMeta, setMeta } from '../db/purge.js';
 import { logError } from '../logger.js';
 import { getUserEmail, readCommits, readStatusSnapshot, statusCodeToAction } from './git.js';
 import { sanitizeText } from './text.js';
@@ -21,6 +22,36 @@ const DAY_MS = 24 * 3600 * 1000;
 export interface SyncOptions {
   /** 距离上次扫描不足该秒数时跳过（Stop 事件频繁，做节流）。 */
   minIntervalSeconds?: number;
+}
+
+/** 用于过滤提交的作者邮箱：仓库的 user.email + git.authorEmails；authorOnly 关闭时不过滤。 */
+export function resolveAuthorEmails(project: ProjectRow, config: DevTrackConfig): string[] {
+  if (!config.git.authorOnly) return [];
+  const emails = [getUserEmail(project.path), ...config.git.authorEmails]
+    .filter((e): e is string => !!e && !!e.trim())
+    .map((e) => e.trim().toLowerCase());
+  return [...new Set(emails)];
+}
+
+const AUTHOR_FILTER_KEY = 'git_author_filter';
+
+/**
+ * 作者过滤条件（authorOnly / authorEmails）变化后，清空各项目的扫描时间，
+ * 下次同步时按 backfillDays 重新扫描，补上之前被过滤掉的提交（已有提交按 hash 去重）。
+ */
+export function refreshOnAuthorFilterChange(db: DB, config: DevTrackConfig): boolean {
+  const current = JSON.stringify({
+    authorOnly: config.git.authorOnly,
+    emails: [...config.git.authorEmails].map((e) => e.trim().toLowerCase()).sort(),
+  });
+  const previous = getMeta(db, AUTHOR_FILTER_KEY);
+  if (previous === current) return false;
+  db.transaction(() => {
+    // 首次记录时不需要重扫
+    if (previous !== undefined) db.prepare('UPDATE projects SET last_git_scan_at = NULL').run();
+    setMeta(db, AUTHOR_FILTER_KEY, current);
+  })();
+  return previous !== undefined;
 }
 
 /**
@@ -43,8 +74,7 @@ export function syncProjectCommits(
   const since = Number.isNaN(last)
     ? new Date(now.getTime() - config.git.backfillDays * DAY_MS)
     : new Date(last - DAY_MS);
-  const authorEmail = config.git.authorOnly ? getUserEmail(project.path) : null;
-  const commits = readCommits(project.path, { since, authorEmail });
+  const commits = readCommits(project.path, { since, authorEmails: resolveAuthorEmails(project, config) });
   if (commits === null) return null;
   let added = 0;
   const extra = config.privacy.redactPatterns;
@@ -72,10 +102,11 @@ export function syncProjectCommits(
 /** CLI 查询前同步所有已知项目的提交（查看统计时也能看到 Claude 之外的提交）。 */
 export function syncAllProjects(db: DB, config: DevTrackConfig, now: Date): number {
   if (!config.collect.git) return 0;
+  const refreshed = refreshOnAuthorFilterChange(db, config);
   let added = 0;
   for (const project of listProjects(db)) {
     try {
-      added += syncProjectCommits(db, project, config, now, { minIntervalSeconds: 60 })?.added ?? 0;
+      added += syncProjectCommits(db, project, config, now, { minIntervalSeconds: refreshed ? 0 : 60 })?.added ?? 0;
     } catch (err) {
       logError(`git-sync:${project.name}`, err);
     }

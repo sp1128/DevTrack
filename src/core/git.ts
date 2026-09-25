@@ -90,7 +90,8 @@ const RS = '\x1e';
 const US = '\x1f';
 
 /** 读取指定时间之后的提交（所有本地分支，不含 merge 提交），附带文件与行数统计。 */
-export function readCommits(root: string, options: { since: Date; authorEmail?: string | null }): GitCommitInfo[] | null {
+/** authorEmails 为空时不按作者过滤；多个邮箱之间是"或"的关系，大小写不敏感。 */
+export function readCommits(root: string, options: { since: Date; authorEmails?: string[] }): GitCommitInfo[] | null {
   const args = [
     'log',
     '--branches',
@@ -101,7 +102,11 @@ export function readCommits(root: string, options: { since: Date; authorEmail?: 
     `--since=${options.since.toISOString()}`,
     `--format=${RS}%H${US}%S${US}%an${US}%aI${US}%s`,
   ];
-  if (options.authorEmail) args.push('--fixed-strings', `--author=<${options.authorEmail}>`);
+  const emails = options.authorEmails ?? [];
+  if (emails.length > 0) {
+    args.push('--fixed-strings', '--regexp-ignore-case');
+    for (const email of emails) args.push(`--author=<${email}>`);
+  }
   const out = runGit(root, args, 15_000);
   if (out === null) return null;
   const commits: GitCommitInfo[] = [];
