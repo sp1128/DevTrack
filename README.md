@@ -31,6 +31,8 @@ devtrack today    # 今天干了什么
 - [查看今天](#查看今天)
 - [查看本周 / 本月](#查看本周--本月)
 - [查看项目](#查看项目)
+- [活跃度热力图](#活跃度热力图)
+- [导出数据](#导出数据)
 - [生成周报 / 月报](#生成周报--月报)
 - [AI 周报（可选）](#ai-周报可选)
 - [会话 AI 摘要（可选）](#会话-ai-摘要可选)
@@ -229,6 +231,58 @@ devtrack project my-app --since 30d
 ```
 
 项目根据 Claude Code 运行时的目录自动识别：在 git 仓库中（包括子目录与 git worktree）时项目为仓库主目录，否则为当前目录。例如在 `D:/code/project-a` 中运行 Claude Code，会自动识别为项目 `project-a`。
+
+## 活跃度热力图
+
+类似 GitHub 贡献图，在终端里显示最近一年每天的开发活跃度：
+
+```bash
+devtrack heatmap                   # 按开发时长，默认按终端宽度显示最近一年
+devtrack heatmap --metric commits  # 按 Git 提交次数（也支持 sessions）
+devtrack heatmap --weeks 26        # 最近 26 周
+```
+
+示例输出（无颜色终端）：
+
+```text
+开发活跃度 · 最近 53 周（开发时长）
+
+    9月 10月    11月    12月      1月     2月     3月       4月     5月     6月       7月     8月       9月
+一  · · · · · · · · · · · · · · · · · · · · · · · · · · · ▒ ▓ █ ░ ▒ ▓ █ ▒ ▒ ▓ █ ░ ▒ ▓ █ ▒ ▒ ▓ █ ░ ▒ ▓ █ ▒
+    …
+日  · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · ░ · · · · · · · · · · · ░ · · · · ·
+
+    少 · ░ ▒ ▓ █ 多
+
+  开发时长 412小时 · 活跃 131 天 · 最长连续 21 天 · 当前连续 4 天
+```
+
+终端支持颜色时显示为深浅不同的绿色方块。颜色深浅以最近一段时间里较忙的一天（第 90 百分位）为满格参考，个别特别忙的日子不会把其他天都压成浅色。
+
+## 导出数据
+
+把数据导出为 CSV 或 JSON，方便导入 Excel、Numbers 或其他工具分析：
+
+```bash
+devtrack export                                   # 会话列表（CSV）输出到终端
+devtrack export --type daily -o daily.csv         # 每日汇总，写入文件（带 BOM，Excel 可直接打开中文）
+devtrack export --type commits --since 30d        # 最近 30 天的提交
+devtrack export --format json -o devtrack.json    # 全部类型导出为一个 JSON
+devtrack export --since 2026-01-01 --until 2026-07-01 --type projects
+```
+
+| `--type` | 内容 |
+| --- | --- |
+| `sessions`（CSV 默认） | 会话：项目、开始 / 结束时间、状态、活跃分钟数、模型、标题、AI 摘要 |
+| `daily` | 每日汇总：活跃分钟数、会话、提交、文件修改、命令、token、费用 |
+| `projects` | 项目汇总：时长、会话、提交、代码行、文件、命令、任务、token、费用 |
+| `commits` | Git 提交：时间、项目、hash、分支、作者、说明、变更行数、是否发生在 Claude 会话期间 |
+| `files` | 文件修改记录：时间、项目、文件路径、动作、来源 |
+| `commands` | 命令记录（已脱敏）：时间、项目、命令、类别、状态、退出码、耗时 |
+| `tasks` | 任务：创建 / 完成时间、项目、标题、状态 |
+| `tokens` | Token 用量（开启 `collect.tokenUsage` 时）：时间、模型、各类 token、估算费用 |
+
+时间字段为 UTC ISO-8601，日期字段为本地日期。CSV 中以 `=`、`+`、`-`、`@` 开头的文本会加上 `'` 前缀，防止在 Excel 中被当作公式执行。
 
 ## 生成周报 / 月报
 
@@ -547,6 +601,8 @@ devtrack today / week / month / project / report  ──>  读取数据库并统
 | `devtrack project [name]` | 项目列表 / 指定项目的统计 |
 | `devtrack report` | 生成 Markdown 周报（`--month` 生成月报，`--ai` 生成 AI 总结） |
 | `devtrack stats` | 全部记录的总体统计 |
+| `devtrack heatmap` | 终端热力图：最近一年每天的开发活跃度 |
+| `devtrack export` | 导出数据为 CSV / JSON |
 | `devtrack summarize` | 用 AI 为已结束的会话生成一句话摘要 |
 | `devtrack purge --before 30d` | 删除指定时间之前的数据 |
 | `devtrack reset` | 删除全部数据 |
