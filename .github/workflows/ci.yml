@@ -25,7 +25,10 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
 
-      - run: npm ci
+      # 所有依赖都不需要安装脚本（better-sqlite3 自带各平台预编译文件）。
+      # npm ci 读取 lockfile 时拿不到 better-sqlite3 的 "gypfile": false，
+      # 在部分 Windows runner 上会误触发 node-gyp 编译，因此跳过安装脚本。
+      - run: npm ci --ignore-scripts
 
       - name: 类型检查
         run: npm run typecheck
@@ -35,3 +38,20 @@ jobs:
 
       - name: 打包预演
         run: npm pack --dry-run
+
+      # 模拟用户的真实安装方式：从打包文件全局安装（依赖从 npm 注册表解析），
+      # 验证 Hook 能写入数据、统计命令能读出来
+      - name: 全局安装冒烟测试
+        shell: bash
+        env:
+          DEVTRACK_HOME: ${{ runner.temp }}/devtrack-home
+        run: |
+          npm pack
+          npm install -g ./devtrack-*.tgz
+          devtrack --version
+          node -e "console.log(JSON.stringify({session_id:'ci-smoke',hook_event_name:'SessionStart',cwd:process.cwd(),source:'startup'}))" | devtrack hook
+          devtrack today --no-sync --json | node -e "
+            const s = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+            if (s.sessions.length !== 1) { console.error('冒烟测试失败：没有记录到会话'); process.exit(1); }
+            console.log('冒烟测试通过：记录到会话', s.sessions[0].sessionId, '项目', s.sessions[0].projectName);
+          "
