@@ -1,14 +1,18 @@
 name: Release
 
-# 推送 v* 标签（例如 v1.0.0）时测试并发布到 npm。
-# 需要先在仓库 Settings → Secrets and variables → Actions 中添加 NPM_TOKEN。
+# 推送 v* 标签（例如 v1.0.2）时测试并发布到 npm。
+#
+# 认证方式（二选一）：
+# 1. 推荐：npm Trusted Publishing（OIDC）。在 npm 上把本仓库的 release.yml 配置为
+#    devtrack 的受信任发布者后，无需任何令牌；npm 会自动生成 provenance。
+# 2. 后备：仓库密钥 NPM_TOKEN。仅在 Trusted Publishing 不可用时使用。
 on:
   push:
     tags: ['v*']
 
 permissions:
   contents: read
-  # npm provenance（来源证明）需要 OIDC 令牌
+  # Trusted Publishing 与 provenance 都依赖 OIDC 令牌
   id-token: write
 
 concurrency:
@@ -30,15 +34,15 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
 
+      # Node 22 自带的 npm 10 不支持 Trusted Publishing，升级到 npm 11
+      - name: 升级 npm
+        run: npm install -g npm@^11.20.0 && npm --version
+
       - name: 发布前检查
         env:
           TAG: ${{ github.ref_name }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo "::error::未配置 NPM_TOKEN：请在仓库 Settings → Secrets and variables → Actions 中添加"
-            exit 1
-          fi
           VERSION=$(node -p "require('./package.json').version")
           if [ "$TAG" != "v$VERSION" ]; then
             echo "::error::标签 $TAG 与 package.json 中的版本 v$VERSION 不一致"
@@ -48,8 +52,14 @@ jobs:
             echo "::error::标签 $TAG 指向的提交不在 main 分支上"
             exit 1
           fi
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "::notice::检测到 NPM_TOKEN：优先使用 Trusted Publishing，不可用时以 NPM_TOKEN 作为后备"
+          else
+            echo "::notice::未配置 NPM_TOKEN：将使用 Trusted Publishing（需要已在 npm 上配置受信任发布者）"
+          fi
 
-      - run: npm ci
+      # 所有依赖都不需要安装脚本，与 CI 保持一致
+      - run: npm ci --ignore-scripts
 
       - name: 类型检查
         run: npm run typecheck
@@ -59,6 +69,7 @@ jobs:
 
       - name: 发布到 npm
         env:
+          # 未配置时为空；npm 会先尝试 OIDC（Trusted Publishing），成功后覆盖此令牌
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
@@ -67,4 +78,7 @@ jobs:
             *-*) DIST_TAG=next ;;
             *) DIST_TAG=latest ;;
           esac
-          npm publish --provenance --access public --tag "$DIST_TAG"
+          if ! npm publish --provenance --access public --tag "$DIST_TAG"; then
+            echo "::error::发布失败。若使用 Trusted Publishing，请确认 npm 上 devtrack 的受信任发布者配置为：仓库 sp1128/DevTrack，工作流 release.yml"
+            exit 1
+          fi
