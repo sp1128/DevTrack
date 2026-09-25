@@ -1,6 +1,7 @@
 import type { AiProvider, DevTrackConfig } from '../config.js';
 import { toHours } from '../core/format.js';
 import type { PeriodStats } from '../stats/queries.js';
+import type { ReportPeriod } from './weekly.js';
 
 export interface AiResult {
   text: string;
@@ -30,14 +31,17 @@ const DEFAULT_KEY_ENVS: Record<AiProvider, string> = {
 /** 支持服务端拒答回退（fallbacks: "default"）的模型 */
 const FALLBACK_MODELS = new Set(['claude-opus-5', 'claude-fable-5-1']);
 
-const SYSTEM_PROMPT = [
-  '你是一名资深软件工程师的周报助手。用户会提供一周的开发统计数据（JSON，由本地工具 DevTrack 自动采集）。',
-  '请用简体中文撰写本周开发总结，要求：',
-  '1. 只依据给定数据，不要编造数据中没有的工作内容、数字或结论；数据不足时如实说明。',
-  '2. 使用 Markdown，依次包含小节：### 本周工作概述、### 各项目进展、### 问题与风险、### 下周建议。',
-  '3. 总长度控制在 600 字以内，语言简洁、具体。',
-  '4. 直接输出正文，不要重复输出“AI 总结”之类的标题。',
-].join('\n');
+function systemPrompt(period: ReportPeriod): string {
+  const [unit, cur, next] = period === 'week' ? ['一周', '本周', '下周'] : ['一个月', '本月', '下月'];
+  return [
+    `你是一名资深软件工程师的${period === 'week' ? '周报' : '月报'}助手。用户会提供${unit}的开发统计数据（JSON，由本地工具 DevTrack 自动采集）。`,
+    `请用简体中文撰写${cur}开发总结，要求：`,
+    '1. 只依据给定数据，不要编造数据中没有的工作内容、数字或结论；数据不足时如实说明。',
+    `2. 使用 Markdown，依次包含小节：### ${cur}工作概述、### 各项目进展、### 问题与风险、### ${next}建议。`,
+    `3. 总长度控制在 ${period === 'week' ? 600 : 900} 字以内，语言简洁、具体。`,
+    '4. 直接输出正文，不要重复输出“AI 总结”之类的标题。',
+  ].join('\n');
+}
 
 /**
  * 构建发送给 AI 的数据：只包含统计数字、项目名、任务标题与提交说明（均已脱敏），
@@ -122,8 +126,8 @@ function resolveApiKey(config: DevTrackConfig, env: NodeJS.ProcessEnv): string |
   return undefined;
 }
 
-function userPrompt(payload: Record<string, unknown>): string {
-  return `以下是本周的开发统计数据：\n\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\``;
+function userPrompt(payload: Record<string, unknown>, period: ReportPeriod): string {
+  return `以下是${period === 'week' ? '本周' : '本月'}的开发统计数据：\n\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\``;
 }
 
 /** 一次文本生成请求。 */
@@ -265,8 +269,14 @@ export async function completeText(config: DevTrackConfig, model: string, prompt
   return callOpenAICompatible(config, model, prompt, deps);
 }
 
-export async function generateAiSummary(stats: PeriodStats, config: DevTrackConfig, deps: AiDeps = {}): Promise<AiResult> {
+export async function generateAiSummary(
+  stats: PeriodStats,
+  config: DevTrackConfig,
+  deps: AiDeps = {},
+  period: ReportPeriod = 'week',
+): Promise<AiResult> {
   const model = resolveModel(config);
   const payload = buildAiPayload(stats, config);
-  return completeText(config, model, { system: SYSTEM_PROMPT, user: userPrompt(payload), maxTokens: 16000 }, deps);
+  const prompt = { system: systemPrompt(period), user: userPrompt(payload, period), maxTokens: 16000 };
+  return completeText(config, model, prompt, deps);
 }

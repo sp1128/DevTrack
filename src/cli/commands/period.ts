@@ -1,6 +1,7 @@
 import { monthRange, parseDay, parseIsoWeek, parseMonth, todayRange, weekRange, type DateRange } from '../../core/time.js';
 import { collectPeriodStats } from '../../stats/queries.js';
 import { CliError, printJson, withCli } from '../context.js';
+import { consumeAutoReportNotice } from '../notice.js';
 import { renderPeriodSummary, renderToday } from '../render.js';
 
 export interface PeriodOptions {
@@ -30,7 +31,7 @@ export async function runToday(options: PeriodOptions): Promise<void> {
     }
     const stats = collectPeriodStats(db, range, { idleMinutes: config.activity.idleMinutes, prices: config.usage.prices });
     if (options.json) printJson(stats);
-    else process.stdout.write(renderToday(stats, title));
+    else process.stdout.write(renderToday(stats, title) + consumeAutoReportNotice(db));
   });
 }
 
@@ -46,7 +47,10 @@ export async function runWeek(options: PeriodOptions): Promise<void> {
     }
     const stats = collectPeriodStats(db, range, { idleMinutes: config.activity.idleMinutes, prices: config.usage.prices });
     if (options.json) printJson(stats);
-    else process.stdout.write(renderPeriodSummary(stats, options.last ? '上周' : options.week ? '周' : '本周', false));
+    else {
+      const text = renderPeriodSummary(stats, options.last ? '上周' : options.week ? '周' : '本周', false);
+      process.stdout.write(text + consumeAutoReportNotice(db));
+    }
   });
 }
 

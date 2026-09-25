@@ -31,7 +31,7 @@ devtrack today    # 今天干了什么
 - [查看今天](#查看今天)
 - [查看本周 / 本月](#查看本周--本月)
 - [查看项目](#查看项目)
-- [生成周报](#生成周报)
+- [生成周报 / 月报](#生成周报--月报)
 - [AI 周报（可选）](#ai-周报可选)
 - [会话 AI 摘要（可选）](#会话-ai-摘要可选)
 - [Token 用量与费用（可选）](#token-用量与费用可选)
@@ -230,7 +230,7 @@ devtrack project my-app --since 30d
 
 项目根据 Claude Code 运行时的目录自动识别：在 git 仓库中（包括子目录与 git worktree）时项目为仓库主目录，否则为当前目录。例如在 `D:/code/project-a` 中运行 Claude Code，会自动识别为项目 `project-a`。
 
-## 生成周报
+## 生成周报 / 月报
 
 ```bash
 devtrack report                  # 本周 -> ~/.devtrack/reports/2026-W39.md
@@ -238,6 +238,10 @@ devtrack report --last           # 上周
 devtrack report --week 2026-W38  # 指定周
 devtrack report --stdout         # 直接输出到终端
 devtrack report -o ./weekly.md   # 指定输出文件
+
+devtrack report --month          # 本月月报 -> ~/.devtrack/reports/2026-09.md
+devtrack report --month --last   # 上月
+devtrack report --month 2026-08  # 指定月份
 ```
 
 周报包含：
@@ -249,6 +253,17 @@ devtrack report -o ./weekly.md   # 指定输出文件
 5. 文件修改
 6. 技术问题（失败的测试 / 构建命令、失败率、失败最多的命令、工具调用失败）
 7. AI 总结（使用 `--ai` 时）
+
+月报的结构与周报相同，按月统计。
+
+### 自动生成周报
+
+默认开启：每周第一次使用 Claude Code 时，DevTrack 会在后台自动生成**上周**的周报到 `~/.devtrack/reports/`，下次运行 `devtrack today` 或 `devtrack week` 时会提示一次文件位置。
+
+- 不会覆盖已有的周报文件（例如你手动生成或修改过的）；上周没有任何活动时不生成。
+- 在独立的后台进程中进行，不影响 Claude Code。
+- 默认不包含 AI 总结；如需包含：`devtrack config set report.autoAi true`（需要先配置 AI）。
+- 关闭：`devtrack config set report.autoWeekly false`。
 
 ## AI 周报（可选）
 
@@ -449,6 +464,8 @@ DEVTRACK_DISABLE=1 claude
 | `git.trackWorkingTree` | `true` | 通过 `git status` 快照补充 Bash / 编辑器造成的文件变化 |
 | `retention.days` | `180` | 自动删除多少天之前的数据（每天最多检查一次）；`0` 表示永久保留 |
 | `usage.prices` | `{}` | 补充或覆盖模型价格（美元 / 百万 token），如 `{"my-model": {"input": 3, "output": 15}}` |
+| `report.autoWeekly` | `true` | 每周第一次使用 Claude Code 时，在后台自动生成上周的周报（不覆盖已有文件） |
+| `report.autoAi` | `false` | 自动生成的周报是否包含 AI 总结 |
 | `activity.idleMinutes` | `30` | 空闲阈值：同一会话中相邻活动间隔超过该值的时间不计入开发时长 |
 | `ai.provider` | `anthropic` | `anthropic` / `openai` / `deepseek` / `openai-compatible` |
 | `ai.model` | 按提供商 | 模型名 |
@@ -528,7 +545,7 @@ devtrack today / week / month / project / report  ──>  读取数据库并统
 | `devtrack week` | 本周的开发情况与各项目开发时间 |
 | `devtrack month` | 本月的开发情况 |
 | `devtrack project [name]` | 项目列表 / 指定项目的统计 |
-| `devtrack report` | 生成 Markdown 周报（`--ai` 生成 AI 总结） |
+| `devtrack report` | 生成 Markdown 周报（`--month` 生成月报，`--ai` 生成 AI 总结） |
 | `devtrack stats` | 全部记录的总体统计 |
 | `devtrack summarize` | 用 AI 为已结束的会话生成一句话摘要 |
 | `devtrack purge --before 30d` | 删除指定时间之前的数据 |

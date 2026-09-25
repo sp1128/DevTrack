@@ -139,13 +139,15 @@ async function main(): Promise<void> {
 
   program
     .command('report')
-    .description('生成 Markdown 周报到 ~/.devtrack/reports/<年>-W<周>.md')
-    .option('--last', '生成上周的周报')
+    .description('生成 Markdown 周报 / 月报到 ~/.devtrack/reports/（<年>-W<周>.md 或 <年>-<月>.md）')
+    .option('--last', '生成上周（与 --month 一起使用时为上月）的报告')
     .option('--week <YYYY-Www>', '生成指定 ISO 周的周报')
+    .option('--month [YYYY-MM]', '生成月报：不带值为本月，也可以指定月份')
     .option('--ai', '调用 AI 生成总结（需配置 ai.provider 与 API Key，只发送统计数据）')
     .option('--dry-run', '与 --ai 一起使用：只打印将发送给 AI 的数据，不实际调用')
     .option('-o, --output <file>', '输出文件路径')
     .option('--stdout', '输出到终端而不是文件')
+    .addOption(new Option('--auto', '由 Hook 自动调用：静默生成上周周报，不覆盖已有文件').hideHelp())
     .addOption(noSync())
     .action(
       action(async (opts) => {
