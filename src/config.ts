@@ -93,6 +93,12 @@ export const ConfigSchema = z.object({
       trackWorkingTree: z.boolean().default(true),
     })
     .prefault({}),
+  retention: z
+    .object({
+      /** 自动删除多少天之前的数据（每天最多检查一次）；0 表示永久保留。 */
+      days: z.number().int().min(0).max(3650).default(180),
+    })
+    .prefault({}),
   activity: z
     .object({
       /** 两次活动间隔超过该分钟数视为空闲，不计入开发时长。 */

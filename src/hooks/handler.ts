@@ -5,6 +5,7 @@ import { diffWorkingTree, snapshotBaseline, syncProjectCommits } from '../core/g
 import { detectProject, isProjectExcluded, relativizePath } from '../core/project.js';
 import { sanitizeText, summarizePrompt } from '../core/text.js';
 import type { DB } from '../db/database.js';
+import { autoPurge } from '../db/purge.js';
 import {
   closeStaleSessions,
   createSession,
@@ -125,6 +126,11 @@ export function handleHookEvent(ctx: HookContext, input: HookInput): HandleResul
         metadata: { source: input.source, model: input.model },
       });
       closeStaleSessions(db, now);
+      try {
+        autoPurge(db, config.retention.days, now);
+      } catch (err) {
+        logError('auto-purge', err);
+      }
       // 上下文压缩发生在会话中途：对比工作区而不是重置基线，避免丢失压缩前产生的文件变化
       const compacting = input.source === 'compact' && !isNewSession;
       git = { commits: true, baseline: !compacting, diff: compacting };

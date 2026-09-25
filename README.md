@@ -332,7 +332,14 @@ devtrack reset                     # 删除全部已采集数据（数据库、�
 devtrack reset --all               # 删除整个 ~/.devtrack 目录
 ```
 
-删除操作会先显示将要删除的内容并要求确认；在脚本中使用时加 `--yes`。`purge` 完成后会执行 SQLite `VACUUM`，确保被删除的数据不残留在数据库文件中。
+删除操作会先显示将要删除的内容并要求确认；在脚本中使用时加 `--yes`。
+
+**自动清理**：默认只保留最近 **180 天**的数据。DevTrack 每天最多检查一次（会话开始时或执行统计命令时），自动删除更早的记录，避免数据库无限增长。调整或关闭：
+
+```bash
+devtrack config set retention.days 365   # 保留一年
+devtrack config set retention.days 0     # 永久保留，不自动清理
+````purge` 完成后会执行 SQLite `VACUUM`，确保被删除的数据不残留在数据库文件中。
 
 ## 如何关闭某类数据采集
 
@@ -381,6 +388,7 @@ DEVTRACK_DISABLE=1 claude
 | `git.authorOnly` | `true` | 只统计 `git config user.email` 对应作者的提交 |
 | `git.backfillDays` | `14` | 首次发现项目时回溯读取的天数 |
 | `git.trackWorkingTree` | `true` | 通过 `git status` 快照补充 Bash / 编辑器造成的文件变化 |
+| `retention.days` | `180` | 自动删除多少天之前的数据（每天最多检查一次）；`0` 表示永久保留 |
 | `activity.idleMinutes` | `30` | 空闲阈值：同一会话中相邻活动间隔超过该值的时间不计入开发时长 |
 | `ai.provider` | `anthropic` | `anthropic` / `openai` / `deepseek` / `openai-compatible` |
 | `ai.model` | 按提供商 | 模型名 |

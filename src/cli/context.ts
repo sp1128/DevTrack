@@ -2,6 +2,7 @@ import { createInterface } from 'node:readline/promises';
 import { ConfigError, loadConfig, type DevTrackConfig } from '../config.js';
 import { syncAllProjects } from '../core/gitSync.js';
 import { openDatabase, type DB } from '../db/database.js';
+import { autoPurge } from '../db/purge.js';
 import { closeStaleSessions } from '../db/repo.js';
 import { getPaths, type DevTrackPaths } from '../paths.js';
 
@@ -40,6 +41,7 @@ export function openCli(options: { sync?: boolean } = {}): CliContext {
   const db = openDatabase(paths.dbFile);
   const now = new Date();
   closeStaleSessions(db, now);
+  autoPurge(db, config.retention.days, now);
   if (options.sync !== false) syncAllProjects(db, config, now);
   return { db, config, paths, now, close: () => db.close() };
 }

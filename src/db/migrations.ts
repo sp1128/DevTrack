@@ -115,6 +115,15 @@ CREATE TABLE session_git_state (
 );
 `,
   },
+  {
+    version: 2,
+    sql: `
+CREATE TABLE IF NOT EXISTS meta (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+`,
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;
