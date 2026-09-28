@@ -31,6 +31,7 @@ devtrack today    # 今天干了什么
 - [查看今天](#查看今天)
 - [查看本周 / 本月](#查看本周--本月)
 - [查看项目](#查看项目)
+- [站会摘要](#站会摘要)
 - [按工单统计](#按工单统计)
 - [活跃度热力图](#活跃度热力图)
 - [导出数据](#导出数据)
@@ -233,6 +234,41 @@ devtrack project my-app --since 30d
 ```
 
 项目根据 Claude Code 运行时的目录自动识别：在 git 仓库中（包括子目录与 git worktree）时项目为仓库主目录，否则为当前目录。例如在 `D:/code/project-a` 中运行 Claude Code，会自动识别为项目 `project-a`。
+
+## 站会摘要
+
+每天站会前运行一次，得到"上一个工作日 / 今天 / 问题"三段摘要，可以直接粘贴到聊天工具：
+
+```bash
+devtrack standup                 # 上一个有活动的日子 + 今天到目前为止
+devtrack standup --date 2026-09-25
+devtrack standup --ai            # 用 AI 改写成自然的站会发言
+devtrack standup --ai --dry-run  # 只打印将发送给 AI 的数据
+devtrack standup --json
+```
+
+```text
+站会 · 2026-09-28（周一）
+
+上次（周五 09-25） · 3小时12分钟
+  • shop [AUTH-42]（2小时40分钟）
+    - feat: 登录页 AUTH-42
+    - 实现登录页并补充测试
+  • docs（32分钟）
+    - 修改 3 个文件，执行命令 2 次
+
+今天（周一 09-28）
+  • shop [AUTH-42]（45分钟）
+    - fix: token 刷新后跳转
+
+问题
+  - 测试：npm test（shop） 失败 3 次
+```
+
+- "上一个工作日"是今天之前最近一个有活动的日子，周一会自动跳过没有活动的周末。
+- 每个项目列出提交说明、会话 AI 摘要（开启 `ai.sessionSummary` 时）和完成的任务；都没有时概括修改的文件数和命令数。
+- "问题"列出两天里失败次数最多的命令（已脱敏）。
+- `--ai` 只发送上面这些内容（项目名、工单号、提交说明、摘要、任务标题、失败命令），不发送源代码和文件路径；模型与会话摘要相同（Anthropic 默认 `claude-haiku-4-5`）。AI 调用失败时自动输出模板版本。
 
 ## 按工单统计
 
@@ -656,6 +692,7 @@ devtrack today / week / month / project / report  ──>  读取数据库并统
 | `devtrack project [name]` | 项目列表 / 指定项目的统计 |
 | `devtrack report` | 生成 Markdown 周报（`--month` 生成月报，`--ai` 生成 AI 总结） |
 | `devtrack stats` | 全部记录的总体统计 |
+| `devtrack standup` | 站会摘要：上一个工作日与今天做了什么、遇到的问题 |
 | `devtrack heatmap` | 终端热力图：最近一年每天的开发活跃度 |
 | `devtrack export` | 导出数据为 CSV / JSON |
 | `devtrack summarize` | 用 AI 为已结束的会话生成一句话摘要 |

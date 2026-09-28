@@ -165,6 +165,21 @@ async function main(): Promise<void> {
     );
 
   program
+    .command('standup')
+    .description('站会摘要：上一个工作日与今天做了什么、遇到的问题，可直接粘贴到聊天工具')
+    .option('--date <YYYY-MM-DD>', '以指定日期为"今天"')
+    .option('--ai', '用 AI 把摘要改写成自然的站会发言（只发送提交说明、摘要等统计数据）')
+    .option('--dry-run', '与 --ai 一起使用：只打印将发送给 AI 的数据，不实际调用')
+    .option('--json', '以 JSON 输出')
+    .addOption(noSync())
+    .action(
+      action(async (opts) => {
+        const { runStandup } = await import('./cli/commands/standup.js');
+        await runStandup(opts);
+      }),
+    );
+
+  program
     .command('heatmap')
     .description('终端热力图：类似 GitHub 贡献图，显示最近一年每天的开发活跃度')
     .option('--weeks <n>', '显示最近多少周（默认按终端宽度，最多 53 周）')
