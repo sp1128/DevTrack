@@ -193,6 +193,28 @@ export function buildWeeklyReport(stats: PeriodStats, options: ReportOptions): s
     }
   }
 
+  if (stats.tickets.length > 0) {
+    push(L('### 按工单', '### By ticket'), '');
+    push(
+      ...table(
+        L('工单|项目|开发时长|会话|提交|代码行', 'Ticket|Project|Active time|Sessions|Commits|Lines').split('|'),
+        stats.tickets.map((tk) => [
+          tk.id,
+          tk.projects.join(', '),
+          tk.activeSeconds > 0 ? formatDuration(tk.activeSeconds) : '-',
+          String(tk.sessions),
+          String(tk.commits),
+          tk.commits > 0 ? `+${formatNumber(tk.insertions)} / -${formatNumber(tk.deletions)}` : '-',
+        ]),
+      ),
+      '',
+    );
+    for (const tk of stats.tickets.filter((x) => x.commitMessages.length > 0)) {
+      push(`- **${tk.id}**${L('：', ': ')}${tk.commitMessages.join(L('；', '; '))}`);
+    }
+    if (stats.tickets.some((x) => x.commitMessages.length > 0)) push('');
+  }
+
   // 三、完成任务
   push(L('## 三、完成任务', '## 3. Completed tasks'), '');
   if (stats.tasks.completed.length > 0) {

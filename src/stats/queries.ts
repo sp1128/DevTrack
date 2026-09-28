@@ -1,4 +1,5 @@
 import { estimateCost, type ModelPrice } from '../core/pricing.js';
+import { DEFAULT_TICKET_OPTIONS, extractTickets, type TicketOptions } from '../core/tickets.js';
 import type { DB } from '../db/database.js';
 import { eachDay, formatDate, type DateRange } from '../core/time.js';
 import { buildIntervals, clipIntervals, summarizeIntervals, type ActivityPoint, type Interval } from './activity.js';
@@ -11,6 +12,8 @@ export interface SessionSummary {
   title: string | null;
   /** AI 生成的一句话摘要（ai.sessionSummary） */
   summary: string | null;
+  /** 会话开始时所在的 Git 分支 */
+  branch: string | null;
   model: string | null;
   startedAt: string;
   endedAt: string | null;
@@ -92,6 +95,21 @@ export interface DailySummary {
   cost: number | null;
 }
 
+export interface TicketSummary {
+  /** 工单号，例如 AUTH-42 */
+  id: string;
+  projects: string[];
+  sessions: number;
+  activeSeconds: number;
+  commits: number;
+  insertions: number;
+  deletions: number;
+  /** 最近一次相关活动（会话或提交）的时间 */
+  lastActivity: string;
+  /** 相关提交说明（最多 10 条，按时间先后） */
+  commitMessages: string[];
+}
+
 export interface TokenBreakdown {
   messages: number;
   input: number;
@@ -138,6 +156,8 @@ export interface PeriodStats {
   daily: DailySummary[];
   /** Token 用量与估算费用（需开启 collect.tokenUsage）；没有记录时为 null */
   tokens: TokenStats | null;
+  /** 按工单号（从分支名、提交说明中提取）汇总；没有识别到工单时为空数组 */
+  tickets: TicketSummary[];
 }
 
 export interface StatsOptions {
@@ -148,6 +168,8 @@ export interface StatsOptions {
   topFiles?: number;
   /** 补充或覆盖的模型价格（配置 usage.prices） */
   prices?: Record<string, ModelPrice>;
+  /** 工单号识别规则（配置 tickets） */
+  tickets?: TicketOptions;
 }
 
 interface ProjectRef {
@@ -190,7 +212,7 @@ export function collectPeriodStats(db: DB, range: DateRange, options: StatsOptio
   // ---- 会话 ----
   const sessionRows = db
     .prepare(
-      `SELECT id, session_id, project_id, title, summary, model, started_at, ended_at, last_activity_at, status
+      `SELECT id, session_id, project_id, title, summary, git_branch, model, started_at, ended_at, last_activity_at, status
          FROM sessions
         WHERE started_at < ? AND COALESCE(ended_at, last_activity_at) >= ?${projectFilter('project_id')}
         ORDER BY started_at`,
@@ -201,6 +223,7 @@ export function collectPeriodStats(db: DB, range: DateRange, options: StatsOptio
     project_id: number | null;
     title: string | null;
     summary: string | null;
+    git_branch: string | null;
     model: string | null;
     started_at: string;
     ended_at: string | null;
@@ -214,6 +237,7 @@ export function collectPeriodStats(db: DB, range: DateRange, options: StatsOptio
     projectName: projectName(s.project_id),
     title: s.title,
     summary: s.summary,
+    branch: s.git_branch,
     model: s.model,
     startedAt: s.started_at,
     endedAt: s.ended_at,
@@ -483,6 +507,41 @@ export function collectPeriodStats(db: DB, range: DateRange, options: StatsOptio
     (a, b) => b.activeSeconds - a.activeSeconds || b.commits - a.commits || b.fileEdits - a.fileEdits,
   );
 
+  // ---- 按工单 ----
+  const ticketOptions = options.tickets ?? DEFAULT_TICKET_OPTIONS;
+  const ticketMap = new Map<string, TicketSummary>();
+  const ticket = (id: string, project: string, at: string): TicketSummary => {
+    let t = ticketMap.get(id);
+    if (!t) {
+      t = { id, projects: [], sessions: 0, activeSeconds: 0, commits: 0, insertions: 0, deletions: 0, lastActivity: at, commitMessages: [] };
+      ticketMap.set(id, t);
+    }
+    if (!t.projects.includes(project)) t.projects.push(project);
+    if (at > t.lastActivity) t.lastActivity = at;
+    return t;
+  };
+  for (const s of sessions) {
+    for (const id of extractTickets(s.branch, ticketOptions)) {
+      const t = ticket(id, s.projectName, s.lastActivityAt);
+      t.sessions++;
+      t.activeSeconds += s.activeSeconds;
+    }
+  }
+  // commits 按时间倒序，倒过来遍历使提交说明按时间先后排列
+  for (const c of [...commits].reverse()) {
+    const ids = [...new Set([...extractTickets(c.branch, ticketOptions), ...extractTickets(c.message, ticketOptions)])];
+    for (const id of ids) {
+      const t = ticket(id, c.projectName, c.timestamp);
+      t.commits++;
+      t.insertions += c.insertions;
+      t.deletions += c.deletions;
+      if (t.commitMessages.length < 10) t.commitMessages.push(c.message);
+    }
+  }
+  const tickets = [...ticketMap.values()].sort(
+    (a, b) => b.activeSeconds - a.activeSeconds || b.commits - a.commits || b.lastActivity.localeCompare(a.lastActivity),
+  );
+
   // ---- 每日分布 ----
   const days = eachDay(range);
   const dayStarts = days.map((d) => d.getTime());
@@ -578,6 +637,7 @@ export function collectPeriodStats(db: DB, range: DateRange, options: StatsOptio
     },
     daily,
     tokens: usageRows.length > 0 ? tokenTotals : null,
+    tickets,
   };
 }
 

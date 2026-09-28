@@ -6,11 +6,11 @@ import type { DB } from '../../db/database.js';
 import { tildify } from '../../paths.js';
 import { collectPeriodStats, earliestRecord, type PeriodStats } from '../../stats/queries.js';
 import type { DevTrackConfig } from '../../config.js';
-import { CliError, withCli } from '../context.js';
+import { CliError, statsOptions, withCli } from '../context.js';
 import { c } from '../format.js';
 import { L } from '../../i18n.js';
 
-export const EXPORT_TYPES = ['sessions', 'daily', 'projects', 'commits', 'files', 'commands', 'tasks', 'tokens'] as const;
+export const EXPORT_TYPES = ['sessions', 'daily', 'projects', 'tickets', 'commits', 'files', 'commands', 'tasks', 'tokens'] as const;
 export type ExportType = (typeof EXPORT_TYPES)[number];
 
 export interface ExportOptions {
@@ -42,6 +42,7 @@ export function exportRows(
       return stats.sessions.map((s) => ({
         session_id: s.sessionId,
         project: s.projectName,
+        branch: s.branch,
         started_at: s.startedAt,
         ended_at: s.endedAt,
         status: s.status,
@@ -78,6 +79,18 @@ export function exportRows(
         tasks_completed: p.tasksCompleted,
         tokens: p.tokens,
         cost_usd: round2(p.cost),
+      }));
+    case 'tickets':
+      return stats.tickets.map((t) => ({
+        ticket: t.id,
+        projects: t.projects.join(', '),
+        active_minutes: Math.round(t.activeSeconds / 60),
+        sessions: t.sessions,
+        commits: t.commits,
+        insertions: t.insertions,
+        deletions: t.deletions,
+        last_activity: t.lastActivity,
+        commit_messages: t.commitMessages.join(' | '),
       }));
     case 'commits':
       return [...stats.commits].reverse().map((cm) => ({
@@ -173,9 +186,10 @@ export function toCsv(rows: Row[], columns?: string[]): string {
 
 /** 空结果时 CSV 仍输出表头 */
 const EMPTY_COLUMNS: Record<ExportType, string[]> = {
-  sessions: ['session_id', 'project', 'started_at', 'ended_at', 'status', 'active_minutes', 'model', 'title', 'summary'],
+  sessions: ['session_id', 'project', 'branch', 'started_at', 'ended_at', 'status', 'active_minutes', 'model', 'title', 'summary'],
   daily: ['date', 'active_minutes', 'sessions', 'commits', 'file_edits', 'commands', 'tokens', 'cost_usd'],
   projects: ['project', 'path', 'git_remote', 'active_minutes', 'sessions', 'commits'],
+  tickets: ['ticket', 'projects', 'active_minutes', 'sessions', 'commits', 'insertions', 'deletions', 'last_activity', 'commit_messages'],
   commits: ['timestamp', 'project', 'hash', 'branch', 'author', 'message', 'files_changed', 'insertions', 'deletions'],
   files: ['timestamp', 'project', 'file_path', 'action', 'source', 'tool_name', 'session_id'],
   commands: ['timestamp', 'project', 'command', 'category', 'status', 'exit_code', 'duration_ms', 'session_id'],
@@ -208,7 +222,7 @@ export async function runExport(options: ExportOptions): Promise<void> {
     }
     if (end <= start) end = new Date(start.getTime() + 1);
     const range = { start, end, label: `${formatDate(start)} ~ ${formatDate(end)}` };
-    const stats = collectPeriodStats(db, range, { idleMinutes: config.activity.idleMinutes, prices: config.usage.prices });
+    const stats = collectPeriodStats(db, range, statsOptions(config));
 
     let output: string;
     if (format === 'json') {

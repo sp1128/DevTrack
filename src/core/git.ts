@@ -138,7 +138,32 @@ export function readCommits(root: string, options: { since: Date; authorEmails?:
       deletions,
     });
   }
+  preferDefaultBranch(root, commits, options.since);
   return commits;
+}
+
+/** 仓库的主分支（本地存在的 origin/HEAD 指向的分支，或 main / master / trunk）。 */
+export function getDefaultBranch(root: string): string | null {
+  const remoteHead = runGit(root, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'])?.trim();
+  const candidates = [remoteHead?.replace(/^[^/]+\//, ''), 'main', 'master', 'trunk'].filter((b): b is string => !!b);
+  const out = runGit(root, ['for-each-ref', '--format=%(refname:short)', ...candidates.map((b) => `refs/heads/${b}`)]);
+  const existing = new Set((out ?? '').split('\n').map((l) => l.trim()).filter(Boolean));
+  return candidates.find((b) => existing.has(b)) ?? null;
+}
+
+/**
+ * `git log --branches --source` 对同时属于多个分支的提交，归属哪个分支是不确定的
+ * （例如新建功能分支后，主分支上的旧提交可能被标成功能分支）。
+ * 已经在主分支上的提交统一标为主分支，避免被错误地归入功能分支（及其工单）。
+ */
+function preferDefaultBranch(root: string, commits: GitCommitInfo[], since: Date): void {
+  if (commits.length === 0) return;
+  const main = getDefaultBranch(root);
+  if (!main || commits.every((c) => c.branch === main)) return;
+  const out = runGit(root, ['rev-list', '--no-merges', `--since=${since.toISOString()}`, `refs/heads/${main}`], 15_000);
+  if (out === null) return;
+  const onMain = new Set(out.split('\n').map((l) => l.trim()).filter(Boolean));
+  for (const c of commits) if (onMain.has(c.hash)) c.branch = main;
 }
 
 /** 超过这个条目数的工作区（例如未忽略 node_modules）不做快照对比。 */

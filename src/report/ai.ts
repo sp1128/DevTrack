@@ -107,6 +107,15 @@ export function buildAiPayload(stats: PeriodStats, config: DevTrackConfig): Reco
       byModel: stats.tokens.byModel.map((m) => ({ model: m.model, totalTokens: m.total })),
     };
   }
+  if (stats.tickets.length > 0) {
+    payload.tickets = stats.tickets.slice(0, 30).map((t) => ({
+      id: t.id,
+      projects: t.projects,
+      activeHours: toHours(t.activeSeconds),
+      commits: t.commits,
+      commitMessages: t.commitMessages,
+    }));
+  }
   const titles = stats.sessions.map((s) => s.title).filter((t): t is string => !!t);
   if (titles.length > 0) payload.sessionTitles = titles.slice(0, 30);
   const summaries = stats.sessions

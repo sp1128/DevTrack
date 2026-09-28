@@ -7,7 +7,7 @@ import { AiError, buildAiPayload, generateAiSummary, resolveModel } from '../../
 import { buildWeeklyReport, type ReportPeriod } from '../../report/weekly.js';
 import { tildify } from '../../paths.js';
 import { collectPeriodStats } from '../../stats/queries.js';
-import { CliError, printJson, withCli } from '../context.js';
+import { CliError, printJson, statsOptions, withCli } from '../context.js';
 import { c } from '../format.js';
 import { AUTO_REPORT_NOTICE_KEY } from '../notice.js';
 import { L } from '../../i18n.js';
@@ -59,11 +59,7 @@ async function generateReport(options: ReportCommandOptions): Promise<void> {
     const target = options.output ? path.resolve(options.output) : path.join(paths.reportsDir, `${range.label}.md`);
     if (options.auto && fs.existsSync(target)) return;
 
-    const stats = collectPeriodStats(db, range, {
-      idleMinutes: config.activity.idleMinutes,
-      prices: config.usage.prices,
-      topFiles: 15,
-    });
+    const stats = collectPeriodStats(db, range, statsOptions(config, { topFiles: 15 }));
     if (options.auto && stats.sessions.length === 0 && stats.commits.length === 0) return;
 
     const useAi = options.ai || (options.auto && config.report.autoAi);

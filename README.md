@@ -31,6 +31,7 @@ devtrack today    # 今天干了什么
 - [查看今天](#查看今天)
 - [查看本周 / 本月](#查看本周--本月)
 - [查看项目](#查看项目)
+- [按工单统计](#按工单统计)
 - [活跃度热力图](#活跃度热力图)
 - [导出数据](#导出数据)
 - [生成周报 / 月报](#生成周报--月报)
@@ -233,6 +234,28 @@ devtrack project my-app --since 30d
 
 项目根据 Claude Code 运行时的目录自动识别：在 git 仓库中（包括子目录与 git worktree）时项目为仓库主目录，否则为当前目录。例如在 `D:/code/project-a` 中运行 Claude Code，会自动识别为项目 `project-a`。
 
+## 按工单统计
+
+如果分支名或提交说明里带有工单号（例如 `feature/AUTH-42-refresh-token`、`fix: PAY-7 金额显示`），`today`、`week`、`month` 和周报会多出"按工单"一节，汇总每个工单的开发时长、会话数和提交：
+
+```text
+按工单（2）
+  工单     项目  活跃时长  会话  提交  最近提交
+  AUTH-42  shop    2小时10分     3     4  fix: token 刷新后跳转
+  PAY-7    shop        -     0     1  fix: 金额显示
+```
+
+- **会话**按开始时所在的分支归入工单，开发时长为这些会话的活跃时长。
+- **提交**按提交所在的分支和提交说明归入工单；已经在主分支（main / master / trunk）上的提交按主分支计算，不会被算进后来新建的功能分支。
+- 默认识别"大写前缀-数字"格式（Jira、Linear、YouTrack 等），并忽略 `UTF-8`、`SHA-256` 这类常见误报。其他格式可以自定义正则，有捕获组时取第一个捕获组：
+
+  ```bash
+  devtrack config set tickets.ignoreCase true                        # 识别 feature/auth-42 这类小写分支名
+  devtrack config set tickets.patterns '["\\b[A-Z][A-Z0-9]+-\\d+\\b", "(#\\d+)"]'  # 同时识别 GitHub 的 #123
+  ```
+
+- `devtrack export --type tickets` 可以导出工单汇总。
+
 ## 活跃度热力图
 
 类似 GitHub 贡献图，在终端里显示最近一年每天的开发活跃度：
@@ -277,6 +300,7 @@ devtrack export --since 2026-01-01 --until 2026-07-01 --type projects
 | `sessions`（CSV 默认） | 会话：项目、开始 / 结束时间、状态、活跃分钟数、模型、标题、AI 摘要 |
 | `daily` | 每日汇总：活跃分钟数、会话、提交、文件修改、命令、token、费用 |
 | `projects` | 项目汇总：时长、会话、提交、代码行、文件、命令、任务、token、费用 |
+| `tickets` | 工单汇总：项目、时长、会话、提交、代码行、相关提交说明 |
 | `commits` | Git 提交：时间、项目、hash、分支、作者、说明、变更行数、是否发生在 Claude 会话期间 |
 | `files` | 文件修改记录：时间、项目、文件路径、动作、来源 |
 | `commands` | 命令记录（已脱敏）：时间、项目、命令、类别、状态、退出码、耗时 |
@@ -546,6 +570,9 @@ DEVTRACK_DISABLE=1 claude
 | `git.trackWorkingTree` | `true` | 通过 `git status` 快照补充 Bash / 编辑器造成的文件变化 |
 | `retention.days` | `180` | 自动删除多少天之前的数据（每天最多检查一次）；`0` 表示永久保留 |
 | `usage.prices` | `{}` | 补充或覆盖模型价格（美元 / 百万 token），如 `{"my-model": {"input": 3, "output": 15}}` |
+| `tickets.patterns` | 大写前缀-数字 | 从分支名与提交说明中识别工单号的正则 |
+| `tickets.ignoreCase` | `false` | 忽略大小写匹配（结果转为大写） |
+| `tickets.ignorePrefixes` | `UTF`、`SHA`、`ISO` 等 | 不当作工单的前缀 |
 | `report.autoWeekly` | `true` | 每周第一次使用 Claude Code 时，在后台自动生成上周的周报（不覆盖已有文件） |
 | `report.autoAi` | `false` | 自动生成的周报是否包含 AI 总结 |
 | `activity.idleMinutes` | `30` | 空闲阈值：同一会话中相邻活动间隔超过该值的时间不计入开发时长 |
