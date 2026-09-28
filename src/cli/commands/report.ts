@@ -2,7 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { monthRange, parseIsoWeek, parseMonth, weekRange, type DateRange } from '../../core/time.js';
 import { setMeta } from '../../db/purge.js';
-import { logError } from '../../logger.js';
+import { logError, writeLog } from '../../logger.js';
+import { sendAll } from '../../notify/webhook.js';
+import { buildReportDigest } from '../../report/digest.js';
 import { AiError, buildAiPayload, generateAiSummary, resolveModel } from '../../report/ai.js';
 import { buildWeeklyReport, type ReportPeriod } from '../../report/weekly.js';
 import { tildify } from '../../paths.js';
@@ -10,6 +12,7 @@ import { collectPeriodStats } from '../../stats/queries.js';
 import { CliError, printJson, statsOptions, withCli } from '../context.js';
 import { c } from '../format.js';
 import { AUTO_REPORT_NOTICE_KEY } from '../notice.js';
+import { pushMessage } from './notify.js';
 import { L } from '../../i18n.js';
 
 export interface ReportCommandOptions {
@@ -24,9 +27,11 @@ export interface ReportCommandOptions {
   sync?: boolean;
   /** 由 Hook 在每周第一次会话时自动调用：静默、不覆盖已有文件、没有数据时不生成 */
   auto?: boolean;
+  /** 生成后把摘要推送到 notify.targets */
+  send?: boolean;
 }
 
-export async function runReport(options: ReportCommandOptions): Promise<void> {
+export async function runReport(options: ReportCommandOptions): Promise<number | void> {
   if (!options.auto) return generateReport(options);
   try {
     await generateReport(options);
@@ -53,8 +58,8 @@ function resolveRange(options: ReportCommandOptions, now: Date): { range: DateRa
   return { range: weekRange(now, options.last ? -1 : 0), period: 'week' };
 }
 
-async function generateReport(options: ReportCommandOptions): Promise<void> {
-  await withCli({ sync: options.sync }, async ({ db, config, paths, now }) => {
+async function generateReport(options: ReportCommandOptions): Promise<number | void> {
+  return withCli({ sync: options.sync }, async ({ db, config, paths, now }) => {
     const { range, period } = resolveRange(options, now);
     const target = options.output ? path.resolve(options.output) : path.join(paths.reportsDir, `${range.label}.md`);
     if (options.auto && fs.existsSync(target)) return;
@@ -92,18 +97,26 @@ async function generateReport(options: ReportCommandOptions): Promise<void> {
     }
 
     const markdown = buildWeeklyReport(stats, { generatedAt: now, aiSummary, aiError, period });
+    const digest = () => buildReportDigest(stats, { period, aiSummary });
     if (options.stdout) {
       process.stdout.write(markdown);
+      if (options.send && !(await pushMessage(config, digest()))) return 1;
       return;
     }
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, markdown, 'utf8');
     if (options.auto) {
       setMeta(db, AUTO_REPORT_NOTICE_KEY, target);
+      if (config.notify.autoWeekly && config.notify.targets.length > 0) {
+        for (const r of await sendAll(config.notify.targets, digest())) {
+          if (!r.ok) writeLog('error', 'auto-report:notify', `${r.target}：${r.error}`);
+        }
+      }
       return;
     }
     const kind = period === 'week' ? L('周报', 'Weekly report') : L('月报', 'Monthly report');
     console.log(`${c.green('✔')} ${L(`${kind}已生成：`, `${kind} saved: `)}${tildify(target)}`);
+    if (options.send && !(await pushMessage(config, digest()))) return 1;
   });
 }
 

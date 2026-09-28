@@ -120,6 +120,9 @@ export function parseConfigLite(raw: unknown): DevTrackConfig | null {
     const usage = section(raw, 'usage');
     const report = section(raw, 'report');
     const tickets = section(raw, 'tickets');
+    const notify = section(raw, 'notify');
+    // 推送目标需要校验 URL 等，交给 zod
+    if (notify.targets !== undefined && !(Array.isArray(notify.targets) && notify.targets.length === 0)) return null;
     const activity = section(raw, 'activity');
     const ai = section(raw, 'ai');
     // 自定义价格表结构较复杂，交给 zod 校验
@@ -169,6 +172,7 @@ export function parseConfigLite(raw: unknown): DevTrackConfig | null {
         ignoreCase: bool(tickets, 'ignoreCase', false),
         ignorePrefixes: strArray(tickets, 'ignorePrefixes', DEFAULT_TICKET_IGNORE),
       },
+      notify: { targets: [], autoWeekly: bool(notify, 'autoWeekly', false) },
       report: {
         autoWeekly: bool(report, 'autoWeekly', true),
         autoAi: bool(report, 'autoAi', false),

@@ -155,12 +155,13 @@ async function main(): Promise<void> {
     .option('--dry-run', '与 --ai 一起使用：只打印将发送给 AI 的数据，不实际调用')
     .option('-o, --output <file>', '输出文件路径')
     .option('--stdout', '输出到终端而不是文件')
+    .option('--send', '生成后把摘要推送到已配置的聊天工具（devtrack notify add）')
     .addOption(new Option('--auto', '由 Hook 自动调用：静默生成上周周报，不覆盖已有文件').hideHelp())
     .addOption(noSync())
     .action(
       action(async (opts) => {
         const { runReport } = await import('./cli/commands/report.js');
-        await runReport(opts);
+        return runReport(opts);
       }),
     );
 
@@ -171,11 +172,54 @@ async function main(): Promise<void> {
     .option('--ai', '用 AI 把摘要改写成自然的站会发言（只发送提交说明、摘要等统计数据）')
     .option('--dry-run', '与 --ai 一起使用：只打印将发送给 AI 的数据，不实际调用')
     .option('--json', '以 JSON 输出')
+    .option('--send', '同时推送到已配置的聊天工具（devtrack notify add）')
     .addOption(noSync())
     .action(
       action(async (opts) => {
         const { runStandup } = await import('./cli/commands/standup.js');
-        await runStandup(opts);
+        return runStandup(opts);
+      }),
+    );
+
+  const notify = program.command('notify').description('推送站会摘要与周报到 Slack / Discord / 飞书 / 钉钉 / 企业微信 / 通用 Webhook');
+  notify
+    .command('list', { isDefault: true })
+    .description('列出推送目标（地址中的令牌已隐藏）')
+    .action(
+      action(async () => {
+        const { runNotifyList } = await import('./cli/commands/notify.js');
+        await runNotifyList();
+      }),
+    );
+  notify
+    .command('add <type> [url]')
+    .description('添加推送目标，type 为 slack / discord / feishu / dingtalk / wecom / webhook')
+    .option('--name <name>', '便于识别的名称')
+    .option('--url-env <VAR>', '从环境变量读取 Webhook 地址（不写入配置文件）')
+    .option('--secret <secret>', '钉钉"加签"密钥')
+    .option('--secret-env <VAR>', '从环境变量读取钉钉"加签"密钥')
+    .action(
+      action(async (type: string, url: string | undefined, opts) => {
+        const { runNotifyAdd } = await import('./cli/commands/notify.js');
+        await runNotifyAdd(type, url, opts);
+      }),
+    );
+  notify
+    .command('remove <name-or-number>')
+    .description('删除推送目标（名称或 notify list 中的序号）')
+    .action(
+      action(async (which: string) => {
+        const { runNotifyRemove } = await import('./cli/commands/notify.js');
+        await runNotifyRemove(which);
+      }),
+    );
+  notify
+    .command('test')
+    .description('向所有推送目标发送一条测试消息')
+    .action(
+      action(async () => {
+        const { runNotifyTest } = await import('./cli/commands/notify.js');
+        return runNotifyTest();
       }),
     );
 
