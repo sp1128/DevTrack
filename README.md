@@ -814,7 +814,9 @@ test/                   Vitest 测试
 
 - **网页**：在 npmjs.com 打开 `devtrack` 的 **Settings → Trusted Publisher**，选择 **GitHub Actions**，填写 Organization or user `sp1128`、Repository `DevTrack`、Workflow filename `release.yml`，然后保存。
 
-配置完成并成功发布一次后，建议：
+发布后，在该次 Release 工作流运行的摘要页（Summary）可以看到本次使用的认证方式：✅ Trusted Publishing，或 ⚠️ NPM_TOKEN 并附带 npm 返回的原因（例如受信任发布者配置不匹配）。
+
+确认通过 Trusted Publishing 成功发布一次后，建议：
 
 1. 删除 GitHub 仓库密钥 `NPM_TOKEN`，并在 npm 上吊销对应的令牌；
 2. 在 `devtrack` 的 **Settings → Publishing access** 中选择要求两步验证并禁止令牌发布，这样只能通过受信任的工作流发布。
