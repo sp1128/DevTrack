@@ -33,6 +33,7 @@ devtrack today    # 今天干了什么
 - [查看项目](#查看项目)
 - [站会摘要](#站会摘要)
 - [按工单统计](#按工单统计)
+- [推送到聊天工具](#推送到聊天工具)
 - [活跃度热力图](#活跃度热力图)
 - [导出数据](#导出数据)
 - [生成周报 / 月报](#生成周报--月报)
@@ -291,6 +292,37 @@ devtrack standup --json
   ```
 
 - `devtrack export --type tickets` 可以导出工单汇总。
+
+## 推送到聊天工具
+
+站会摘要和周报可以推送到 Slack、Discord、飞书、钉钉、企业微信的群机器人，或任意接收 JSON 的 Webhook：
+
+```bash
+devtrack notify add feishu https://open.feishu.cn/open-apis/bot/v2/hook/xxxx --name 团队群
+devtrack notify add dingtalk https://oapi.dingtalk.com/robot/send?access_token=xxxx --secret-env DINGTALK_SECRET
+devtrack notify add slack --url-env SLACK_WEBHOOK_URL      # 地址从环境变量读取，不写入配置文件
+devtrack notify list                                       # 地址中的令牌会隐藏
+devtrack notify test                                       # 发送一条测试消息
+devtrack notify remove 团队群                               # 按名称或序号删除
+
+devtrack standup --send                # 站会摘要（配合 --ai 推送 AI 改写的版本）
+devtrack report --send                 # 生成周报并推送精简版（概况、项目、工单、完成任务、AI 总结）
+devtrack report --month --last --send  # 上月月报
+devtrack config set notify.autoWeekly true   # 每周自动生成的周报也同时推送
+```
+
+| 类型 | 说明 |
+| --- | --- |
+| `slack` / `discord` | Incoming Webhook，发送纯文本；Discord 单条最多 2000 字符，超出部分截断 |
+| `feishu` | 飞书自定义机器人。目前不支持"签名校验"，请使用"自定义关键词"（消息都以 `DevTrack` 开头，可以把关键词设为 `DevTrack`）或"IP 白名单" |
+| `dingtalk` | 钉钉自定义机器人，支持"加签"（`--secret` 或 `--secret-env`）和"自定义关键词"（同样可以设为 `DevTrack`） |
+| `wecom` | 企业微信群机器人，文本最长 2048 字节，超出部分截断 |
+| `webhook` | 通用 JSON：`{"source": "devtrack", "kind", "title", "text", "data"}`，`kind` 为 `standup` / `report` / `test`，可以接到自己的服务、n8n、Zapier 等 |
+
+- 推送的内容与 `--ai` 发送给 AI 的内容相同：项目名、工单号、提交说明、会话摘要、任务标题和统计数字，不包含源代码、文件路径和对话内容。只有在你运行 `--send`（或开启 `notify.autoWeekly`）时才会发送。
+- 飞书、钉钉、企业微信出错时也会返回 HTTP 200，DevTrack 会检查返回的错误码并显示原因，例如关键词不匹配。
+- 任一目标推送失败时，命令以非零状态码退出，方便在脚本或定时任务中发现问题。
+- Webhook 地址本身就是凭据，不要提交到仓库。建议用 `--url-env` / `--secret-env` 把它们放在环境变量里。
 
 ## 活跃度热力图
 
@@ -609,6 +641,8 @@ DEVTRACK_DISABLE=1 claude
 | `tickets.patterns` | 大写前缀-数字 | 从分支名与提交说明中识别工单号的正则 |
 | `tickets.ignoreCase` | `false` | 忽略大小写匹配（结果转为大写） |
 | `tickets.ignorePrefixes` | `UTF`、`SHA`、`ISO` 等 | 不当作工单的前缀 |
+| `notify.targets` | `[]` | 推送目标，建议用 `devtrack notify add` 添加 |
+| `notify.autoWeekly` | `false` | 自动生成周报后同时推送 |
 | `report.autoWeekly` | `true` | 每周第一次使用 Claude Code 时，在后台自动生成上周的周报（不覆盖已有文件） |
 | `report.autoAi` | `false` | 自动生成的周报是否包含 AI 总结 |
 | `activity.idleMinutes` | `30` | 空闲阈值：同一会话中相邻活动间隔超过该值的时间不计入开发时长 |
@@ -693,6 +727,7 @@ devtrack today / week / month / project / report  ──>  读取数据库并统
 | `devtrack report` | 生成 Markdown 周报（`--month` 生成月报，`--ai` 生成 AI 总结） |
 | `devtrack stats` | 全部记录的总体统计 |
 | `devtrack standup` | 站会摘要：上一个工作日与今天做了什么、遇到的问题 |
+| `devtrack notify` | 管理推送目标：`add` / `list` / `remove` / `test` |
 | `devtrack heatmap` | 终端热力图：最近一年每天的开发活跃度 |
 | `devtrack export` | 导出数据为 CSV / JSON |
 | `devtrack summarize` | 用 AI 为已结束的会话生成一句话摘要 |

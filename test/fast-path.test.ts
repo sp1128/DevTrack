@@ -34,6 +34,7 @@ describe('Hook 轻量配置解析与 zod 等价', () => {
       { retention: { days: 0 }, activity: { idleMinutes: 480 }, report: { autoWeekly: false, autoAi: true } },
       { ai: { provider: 'deepseek', model: 'x', baseUrl: 'http://h', apiKeyEnv: 'K', sessionSummary: true, sessionSummaryModel: 'm' } },
       { usage: { prices: {} } },
+      { notify: { targets: [], autoWeekly: true }, tickets: { patterns: ['(#\\d+)'], ignoreCase: true, ignorePrefixes: [] } },
       { version: 1, unknownKey: 1, collect: { unknown: true } },
       JSON.parse(JSON.stringify(defaultConfig())),
     ];
@@ -65,6 +66,9 @@ describe('Hook 轻量配置解析与 zod 等价', () => {
       { usage: { prices: { m: { input: 1, output: 2 } } } },
       { usage: { prices: { m: { input: -1 } } } },
       { report: { autoWeekly: 'false' } },
+      { notify: { targets: [{ type: 'slack', url: 'https://hooks.slack.com/x' }] } },
+      { notify: { targets: [{ type: 'slack' }] } },
+      { tickets: { patterns: 'x' } },
     ];
     for (const raw of cases) expect(expectConfigEquivalent(raw), JSON.stringify(raw)).toBeNull();
   });

@@ -6,6 +6,7 @@ import { getPaths } from './paths.js';
 
 import { DEFAULT_IGNORED_COMMANDS } from './configLite.js';
 import { DEFAULT_TICKET_IGNORE, DEFAULT_TICKET_PATTERN } from './core/tickets.js';
+import { NOTIFY_TYPES } from './notify/webhook.js';
 
 export { DEFAULT_IGNORED_COMMANDS };
 
@@ -82,6 +83,27 @@ export const ConfigSchema = z.object({
       ignoreCase: z.boolean().default(false),
       /** 不当作工单的前缀，例如 UTF-8、SHA-256。 */
       ignorePrefixes: z.array(z.string()).default(DEFAULT_TICKET_IGNORE),
+    })
+    .prefault({}),
+  notify: z
+    .object({
+      /** 推送目标（群机器人 Webhook）。用 devtrack notify add 添加。 */
+      targets: z
+        .array(
+          z
+            .object({
+              type: z.enum(NOTIFY_TYPES),
+              url: z.url({ protocol: /^https?$/ }).optional(),
+              urlEnv: z.string().min(1).optional(),
+              secret: z.string().min(1).optional(),
+              secretEnv: z.string().min(1).optional(),
+              name: z.string().min(1).optional(),
+            })
+            .refine((t) => Boolean(t.url || t.urlEnv), { message: 'url 与 urlEnv 至少填写一个' }),
+        )
+        .default([]),
+      /** 自动生成周报后同时推送摘要（需要 report.autoWeekly）。 */
+      autoWeekly: z.boolean().default(false),
     })
     .prefault({}),
   report: z
