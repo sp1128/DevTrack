@@ -6,6 +6,7 @@ import { autoPurge } from '../db/purge.js';
 import { closeStaleSessions } from '../db/repo.js';
 import { setLang } from '../i18n.js';
 import { getPaths, type DevTrackPaths } from '../paths.js';
+import type { StatsOptions } from '../stats/queries.js';
 
 export class CliError extends Error {
   constructor(
@@ -47,6 +48,11 @@ export function openCli(options: { sync?: boolean } = {}): CliContext {
   autoPurge(db, config.retention.days, now);
   if (options.sync !== false) syncAllProjects(db, config, now);
   return { db, config, paths, now, close: () => db.close() };
+}
+
+/** 统计命令共用的参数：空闲阈值、价格表、工单识别规则。 */
+export function statsOptions(config: DevTrackConfig, extra: Partial<StatsOptions> = {}): StatsOptions {
+  return { idleMinutes: config.activity.idleMinutes, prices: config.usage.prices, tickets: config.tickets, ...extra };
 }
 
 export async function withCli<T>(options: { sync?: boolean }, fn: (ctx: CliContext) => Promise<T> | T): Promise<T> {

@@ -5,6 +5,7 @@ import { LANGS } from './i18n.js';
 import { getPaths } from './paths.js';
 
 import { DEFAULT_IGNORED_COMMANDS } from './configLite.js';
+import { DEFAULT_TICKET_IGNORE, DEFAULT_TICKET_PATTERN } from './core/tickets.js';
 
 export { DEFAULT_IGNORED_COMMANDS };
 
@@ -71,6 +72,16 @@ export const ConfigSchema = z.object({
           z.object({ input: z.number().min(0), output: z.number().min(0), cacheRead: z.number().min(0).optional() }),
         )
         .default({}),
+    })
+    .prefault({}),
+  tickets: z
+    .object({
+      /** 从分支名与提交说明中提取工单号的正则；有捕获组时取第一个捕获组。 */
+      patterns: z.array(z.string()).default([DEFAULT_TICKET_PATTERN]),
+      /** 忽略大小写匹配（结果统一转为大写），适合 feature/auth-42 这类小写分支名。 */
+      ignoreCase: z.boolean().default(false),
+      /** 不当作工单的前缀，例如 UTF-8、SHA-256。 */
+      ignorePrefixes: z.array(z.string()).default(DEFAULT_TICKET_IGNORE),
     })
     .prefault({}),
   report: z

@@ -1,7 +1,7 @@
 import { formatDuration } from '../../core/format.js';
 import { formatDate, weekRange } from '../../core/time.js';
 import { collectPeriodStats, type DailySummary } from '../../stats/queries.js';
-import { CliError, printJson, withCli } from '../context.js';
+import { CliError, printJson, statsOptions, withCli } from '../context.js';
 import { c, color256, colorEnabled, displayWidth } from '../format.js';
 import { getLang, L } from '../../i18n.js';
 
@@ -128,7 +128,7 @@ export async function runHeatmap(options: HeatmapOptions): Promise<void> {
 
   await withCli({ sync: options.sync }, ({ db, config, now }) => {
     const range = { start: weekRange(now, -(weeks - 1)).start, end: weekRange(now).end, label: L(`最近 ${weeks} 周`, `Last ${weeks} weeks`) };
-    const stats = collectPeriodStats(db, range, { idleMinutes: config.activity.idleMinutes, topFiles: 0 });
+    const stats = collectPeriodStats(db, range, statsOptions(config, { topFiles: 0 }));
     const todayLabel = formatDate(now);
     if (options.json) {
       printJson(

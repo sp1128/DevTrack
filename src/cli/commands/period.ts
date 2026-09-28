@@ -1,6 +1,6 @@
 import { monthRange, parseDay, parseIsoWeek, parseMonth, todayRange, weekRange, type DateRange } from '../../core/time.js';
 import { collectPeriodStats } from '../../stats/queries.js';
-import { CliError, printJson, withCli } from '../context.js';
+import { CliError, printJson, statsOptions, withCli } from '../context.js';
 import { consumeAutoReportNotice } from '../notice.js';
 import { renderPeriodSummary, renderToday } from '../render.js';
 import { L } from '../../i18n.js';
@@ -30,7 +30,7 @@ export async function runToday(options: PeriodOptions): Promise<void> {
     } else {
       range = todayRange(now);
     }
-    const stats = collectPeriodStats(db, range, { idleMinutes: config.activity.idleMinutes, prices: config.usage.prices });
+    const stats = collectPeriodStats(db, range, statsOptions(config));
     if (options.json) printJson(stats);
     else process.stdout.write(renderToday(stats, title) + consumeAutoReportNotice(db));
   });
@@ -46,7 +46,7 @@ export async function runWeek(options: PeriodOptions): Promise<void> {
     } else {
       range = weekRange(now, options.last ? -1 : 0);
     }
-    const stats = collectPeriodStats(db, range, { idleMinutes: config.activity.idleMinutes, prices: config.usage.prices });
+    const stats = collectPeriodStats(db, range, statsOptions(config));
     if (options.json) printJson(stats);
     else {
       const text = renderPeriodSummary(
@@ -69,11 +69,7 @@ export async function runMonth(options: PeriodOptions): Promise<void> {
     } else {
       range = monthRange(now, options.last ? -1 : 0);
     }
-    const stats = collectPeriodStats(db, range, {
-      idleMinutes: config.activity.idleMinutes,
-      prices: config.usage.prices,
-      topFiles: 15,
-    });
+    const stats = collectPeriodStats(db, range, statsOptions(config, { topFiles: 15 }));
     if (options.json) printJson(stats);
     else {
       const title = options.last ? L('上月', 'Last month') : options.month ? L('月', 'Month') : L('本月', 'This month');

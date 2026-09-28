@@ -6,7 +6,7 @@ import { formatDate, startOfDayLocal } from '../../core/time.js';
 import { tableCounts } from '../../db/database.js';
 import { tildify } from '../../paths.js';
 import { collectPeriodStats, earliestRecord } from '../../stats/queries.js';
-import { printJson, withCli } from '../context.js';
+import { printJson, statsOptions, withCli } from '../context.js';
 import { renderTokens, tokenRow } from '../render.js';
 import { bar, c, heading, keyValues, table } from '../format.js';
 
@@ -18,11 +18,7 @@ export async function runStats(options: { json?: boolean; sync?: boolean }): Pro
       end: new Date(now.getTime() + 60_000),
       label: '全部记录',
     };
-    const stats = collectPeriodStats(db, range, {
-      idleMinutes: config.activity.idleMinutes,
-      prices: config.usage.prices,
-      topFiles: 10,
-    });
+    const stats = collectPeriodStats(db, range, statsOptions(config, { topFiles: 10 }));
     const counts = tableCounts(db);
     const dbSize = ['', '-wal'].reduce((n, suffix) => {
       try {

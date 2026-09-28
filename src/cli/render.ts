@@ -166,6 +166,28 @@ function renderProjects(stats: PeriodStats, withShare: boolean): string[] {
   ];
 }
 
+function renderTickets(stats: PeriodStats, limit: number): string[] {
+  if (stats.tickets.length === 0) return [];
+  const out = [heading(L(`按工单（${stats.tickets.length}）`, `By ticket (${stats.tickets.length})`))];
+  out.push(
+    table(
+      L('工单|项目|活跃时长|会话|提交|最近提交', 'Ticket|Project|Active|Sessions|Commits|Latest commit').split('|'),
+      stats.tickets.slice(0, limit).map((t) => [
+        c.cyan(t.id),
+        t.projects.join(', '),
+        t.activeSeconds > 0 ? formatDuration(t.activeSeconds, true) : c.gray('-'),
+        String(t.sessions),
+        String(t.commits),
+        t.commitMessages.length > 0 ? truncate(t.commitMessages[t.commitMessages.length - 1]!, 40) : c.gray('-'),
+      ]),
+      { alignRight: [2, 3, 4], maxWidths: [undefined, 24] },
+    ),
+  );
+  const more = stats.tickets.length - limit;
+  if (more > 0) out.push(c.gray(L(`  … 另有 ${more} 个工单`, `  … and ${more} more tickets`)));
+  return out;
+}
+
 function renderFiles(stats: PeriodStats, limit: number): string[] {
   if (stats.files.top.length === 0) return [];
   const n = Math.min(limit, stats.files.top.length);
@@ -241,6 +263,7 @@ export function renderToday(stats: PeriodStats, title = L('今天', 'Today')): s
     ]),
   );
   out.push(...renderProjects(stats, false));
+  out.push(...renderTickets(stats, 10));
   out.push(...renderSessions(stats, 10));
   out.push(...renderCommits(stats, 10, false));
   out.push(...renderFiles(stats, 10));
@@ -305,6 +328,7 @@ export function renderPeriodSummary(
   );
   out.push(...renderDaily(stats, onlyActiveDays));
   if (!options.singleProject) out.push(...renderProjects(stats, true));
+  out.push(...renderTickets(stats, 15));
   out.push(...renderTasks(stats, 15));
   out.push(...renderCommits(stats, 8, true));
   out.push(...renderFiles(stats, 8));

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import type { DevTrackConfig } from './config.js';
+import { DEFAULT_TICKET_IGNORE, DEFAULT_TICKET_PATTERN } from './core/tickets.js';
 
 /**
  * Hook 专用的轻量配置读取（不加载 zod）。
@@ -118,6 +119,7 @@ export function parseConfigLite(raw: unknown): DevTrackConfig | null {
     const retention = section(raw, 'retention');
     const usage = section(raw, 'usage');
     const report = section(raw, 'report');
+    const tickets = section(raw, 'tickets');
     const activity = section(raw, 'activity');
     const ai = section(raw, 'ai');
     // 自定义价格表结构较复杂，交给 zod 校验
@@ -162,6 +164,11 @@ export function parseConfigLite(raw: unknown): DevTrackConfig | null {
       },
       retention: { days: int(retention, 'days', 180, 0, 3650) },
       usage: { prices: {} },
+      tickets: {
+        patterns: strArray(tickets, 'patterns', [DEFAULT_TICKET_PATTERN]),
+        ignoreCase: bool(tickets, 'ignoreCase', false),
+        ignorePrefixes: strArray(tickets, 'ignorePrefixes', DEFAULT_TICKET_IGNORE),
+      },
       report: {
         autoWeekly: bool(report, 'autoWeekly', true),
         autoAi: bool(report, 'autoAi', false),
