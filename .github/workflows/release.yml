@@ -78,7 +78,25 @@ jobs:
             *-*) DIST_TAG=next ;;
             *) DIST_TAG=latest ;;
           esac
-          if ! npm publish --provenance --access public --tag "$DIST_TAG"; then
-            echo "::error::发布失败。若使用 Trusted Publishing，请确认 npm 上 devtrack 的受信任发布者配置为：仓库 sp1128/DevTrack，工作流 release.yml"
+
+          # npm 的 OIDC（Trusted Publishing）失败时不会报错，而是静默改用 NODE_AUTH_TOKEN，
+          # 原因只在 verbose 日志里。完整日志留在 runner 上，这里只显示常规输出和 oidc 相关的行。
+          LOG="$RUNNER_TEMP/npm-publish.log"
+          STATUS=0
+          npm publish --provenance --access public --tag "$DIST_TAG" --loglevel verbose > "$LOG" 2>&1 || STATUS=$?
+          grep -vE '^npm (verbose|http|timing|silly) ' "$LOG" || true
+          OIDC=$(grep -E '^npm (verbose|silly) oidc ' "$LOG" | sed -E 's/^npm (verbose|silly) oidc //' | tr '\n' ';' | sed 's/;$//' || true)
+          echo "OIDC：${OIDC:-（无日志）}"
+
+          HINT="请核对 npm 上 devtrack 的受信任发布者：GitHub Actions / sp1128 / DevTrack / release.yml / Environment 留空"
+          if [ "$STATUS" -ne 0 ]; then
+            echo "::error::发布失败。Trusted Publishing：${OIDC:-无日志}。$HINT"
+            echo "❌ 发布失败（Trusted Publishing：${OIDC:-无日志}）" >> "$GITHUB_STEP_SUMMARY"
             exit 1
+          elif grep -q 'oidc Successfully retrieved and set token' "$LOG"; then
+            echo "::notice::已通过 Trusted Publishing（OIDC）认证发布"
+            echo "✅ 认证方式：Trusted Publishing（OIDC）" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::Trusted Publishing 未生效，已改用 NPM_TOKEN 发布。npm 返回：${OIDC:-无日志}。$HINT"
+            echo "⚠️ 认证方式：NPM_TOKEN（Trusted Publishing 未生效：${OIDC:-无日志}）" >> "$GITHUB_STEP_SUMMARY"
           fi
