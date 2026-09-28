@@ -31,6 +31,7 @@ devtrack today    # 今天干了什么
 - [查看今天](#查看今天)
 - [查看本周 / 本月](#查看本周--本月)
 - [查看项目](#查看项目)
+- [在 Claude Code 里直接提问（MCP）](#在-claude-code-里直接提问mcp)
 - [站会摘要](#站会摘要)
 - [按工单统计](#按工单统计)
 - [推送到聊天工具](#推送到聊天工具)
@@ -235,6 +236,34 @@ devtrack project my-app --since 30d
 ```
 
 项目根据 Claude Code 运行时的目录自动识别：在 git 仓库中（包括子目录与 git worktree）时项目为仓库主目录，否则为当前目录。例如在 `D:/code/project-a` 中运行 Claude Code，会自动识别为项目 `project-a`。
+
+## 在 Claude Code 里直接提问（MCP）
+
+DevTrack 自带一个只读的 MCP 服务器。注册之后，可以在 Claude Code 里直接问：
+
+> 我这周在哪个项目上花的时间最多？昨天做了什么？AUTH-42 一共花了多久？这个月 token 花了多少钱？
+
+```bash
+devtrack mcp install     # 通过 claude mcp add 注册到 Claude Code（用户范围，所有项目可用）
+devtrack mcp test        # 自检：模拟 Claude Code 调用每个工具
+claude mcp get devtrack-stats   # 查看连接状态（应显示 Connected）
+devtrack mcp uninstall   # 移除
+```
+
+注册完成后重新启动 Claude Code 即可使用。提供的工具（均为只读）：
+
+| 工具 | 用途 |
+| --- | --- |
+| `get_activity_summary` | 指定时间范围（今天 / 昨天 / 本周 / 上周 / 本月 / 上月 / 全部，或某一天）与项目的统计：时长、项目、工单、提交、文件、失败命令、完成任务、会话摘要、token 费用 |
+| `get_standup` | 站会摘要（与 `devtrack standup` 相同），同时返回文本与结构化数据 |
+| `list_projects` | 所有项目及其路径、远程仓库、首次 / 最近活动与累计数据 |
+| `search_sessions` | 按标题、AI 摘要或分支名（例如工单号）搜索 Claude Code 会话 |
+| `get_token_usage` | 按模型、按项目的 token 用量与估算费用（需开启 `collect.tokenUsage`） |
+
+- **数据流向**：MCP 服务器由 Claude Code 在本机启动，读取本地数据库。工具返回的结果会作为对话内容发给 Claude 模型，这和你把 `devtrack week` 的输出粘贴给 Claude 一样。
+- **默认名称是 `devtrack-stats`**：为了避免和其他同名工具冲突。可以用 `--name` 修改，用 `--scope local` / `--scope project` 只在当前项目注册。
+- **找不到 `claude` 命令时**：`install` 会打印手动注册的命令，以及可以放进 `.mcp.json` 的配置。
+- 服务器按 MCP 规范实现 stdio 传输，已用 Claude Code 2.1.283 实测：`claude mcp list` 显示 Connected，在 `claude -p` 会话中调用工具返回的结果与 `devtrack week` 一致。
 
 ## 站会摘要
 
@@ -727,6 +756,7 @@ devtrack today / week / month / project / report  ──>  读取数据库并统
 | `devtrack report` | 生成 Markdown 周报（`--month` 生成月报，`--ai` 生成 AI 总结） |
 | `devtrack stats` | 全部记录的总体统计 |
 | `devtrack standup` | 站会摘要：上一个工作日与今天做了什么、遇到的问题 |
+| `devtrack mcp` | MCP 服务器：`install` / `uninstall` / `test`（`devtrack mcp` 本身由 Claude Code 启动） |
 | `devtrack notify` | 管理推送目标：`add` / `list` / `remove` / `test` |
 | `devtrack heatmap` | 终端热力图：最近一年每天的开发活跃度 |
 | `devtrack export` | 导出数据为 CSV / JSON |

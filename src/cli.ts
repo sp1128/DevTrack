@@ -223,6 +223,48 @@ async function main(): Promise<void> {
       }),
     );
 
+  const mcp = program.command('mcp').description('MCP 服务器：让 Claude Code 直接查询 DevTrack 的统计数据（只读）');
+  mcp
+    .command('serve', { isDefault: true })
+    .description('以 stdio 方式运行 MCP 服务器（由 Claude Code 启动）')
+    .action(
+      action(async () => {
+        const { runMcpServe } = await import('./cli/commands/mcp.js');
+        await runMcpServe();
+      }),
+    );
+  mcp
+    .command('install')
+    .description('通过 claude mcp add 注册到 Claude Code')
+    .option('--name <name>', 'MCP 服务器名称', 'devtrack-stats')
+    .option('--scope <scope>', 'user（所有项目，默认）/ local / project', 'user')
+    .action(
+      action(async (opts: { name?: string; scope?: string }) => {
+        const { runMcpInstall } = await import('./cli/commands/mcp.js');
+        return runMcpInstall(opts);
+      }),
+    );
+  mcp
+    .command('uninstall')
+    .description('从 Claude Code 移除 MCP 服务器')
+    .option('--name <name>', 'MCP 服务器名称', 'devtrack-stats')
+    .option('--scope <scope>', 'user / local / project', 'user')
+    .action(
+      action(async (opts: { name?: string; scope?: string }) => {
+        const { runMcpUninstall } = await import('./cli/commands/mcp.js');
+        return runMcpUninstall(opts);
+      }),
+    );
+  mcp
+    .command('test')
+    .description('自检：模拟 Claude Code 调用每个工具')
+    .action(
+      action(async () => {
+        const { runMcpTest } = await import('./cli/commands/mcp.js');
+        return runMcpTest();
+      }),
+    );
+
   program
     .command('heatmap')
     .description('终端热力图：类似 GitHub 贡献图，显示最近一年每天的开发活跃度')
